@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">PDRTAM</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="save">Save</string>
+    <string name="view3d">View3D</string>
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+    <string name="change">Change</string>
+    <string name="log">Log</string>
+    <string name="reset">Reset</string>
+    <string name="take_pic">take pic</string>
+    <string name="save_start">Save Start</string>
+    <string name="save_stop">Save Stop</string>
+    
+</resources>
