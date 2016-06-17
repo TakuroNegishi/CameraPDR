@@ -8,6 +8,7 @@ import org.opencv.android.OpenCVLoader;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
@@ -20,7 +21,9 @@ import android.widget.Button;
 
 public class MainActivity extends Activity implements OnClickListener,
 		DialogInterface.OnClickListener {
+	
 	private SLAMEngine slam;
+	private SensorAdapter sa;
 
 	// ライブラリ初期化完了後に呼ばれるコールバック (onManagerConnected)
 	// public abstract class BaseLoaderCallback implements
@@ -40,6 +43,12 @@ public class MainActivity extends Activity implements OnClickListener,
 		}
 	};
 
+	private static Context appContext;
+	
+	public static Context getContext() {
+		return appContext;
+	}
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -50,18 +59,22 @@ public class MainActivity extends Activity implements OnClickListener,
 		// requestWindowFeature(Window.FEATURE_NO_TITLE); // タイトルバー非表示
 
 		setContentView(R.layout.activity_main);
+		appContext = getApplicationContext();
 		initTAMMode();
 		initButtons();
 	}
 
 	private void initTAMMode() {
 		slam = new SLAMEngine(this);
+		sa = new SensorAdapter();
 	}
 
 	public void initButtons() {
 		Button btn = (Button) findViewById(R.id.start_stop_btn);
 		btn.setOnClickListener(this);
 		btn = (Button) findViewById(R.id.save_start_stop_btn);
+		btn.setOnClickListener(this);
+		btn = (Button) findViewById(R.id.write_log_btn);
 		btn.setOnClickListener(this);
 	}
 
@@ -79,6 +92,7 @@ public class MainActivity extends Activity implements OnClickListener,
 	public void onPause() {
 		super.onPause();
 		slam.onPause();
+		sa.removeSensor(); // Listenerの登録解除
 	}
 
 	@Override
@@ -97,8 +111,10 @@ public class MainActivity extends Activity implements OnClickListener,
 			Button startStopBtn = (Button) v;
 			if (startStopBtn.getText().equals("Start")) {
 				startStopBtn.setText("Stop");
+				sa.setSensor(this); // Listenerの登録
 			} else if (startStopBtn.getText().equals("Stop")) {
 				startStopBtn.setText("Start");
+				sa.removeSensor(); // Listenerの登録解除
 			}
 			break;
 		case R.id.save_start_stop_btn:
@@ -106,10 +122,16 @@ public class MainActivity extends Activity implements OnClickListener,
 			Button saveStartStopBtn = (Button) v;
 			if (saveStartStopBtn.getText().equals("Save Start")) {
 				saveStartStopBtn.setText("Save Stop");
+				sa.setSensor(this); // Listenerの登録
 			} else if (saveStartStopBtn.getText().equals("Save Stop")) {
 				saveStartStopBtn.setText("Save Start");
-				rescanSdcard(); // SDカード（端末内部）の画像をrescan
+				sa.removeSensor(); // Listenerの登録解除
+//				rescanSdcard(); // SDカード（端末内部）の画像をrescan
 			}
+			break;
+		case R.id.write_log_btn:
+			sa.writeLog(); // センサーデータ履歴出力
+			break;
 		}
 	}
 	

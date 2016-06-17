@@ -19,6 +19,8 @@ const cv::Scalar DirectionEstimator::SCALAR_GREEN(0, 255, 0);
 const cv::Scalar DirectionEstimator::SCALAR_BLUE(0, 0, 255);
 const cv::Scalar DirectionEstimator::SCALAR_YELLOW(255, 255, 0);
 const cv::Scalar DirectionEstimator::SCALAR_PURPLE(255, 0, 255);
+const int DirectionEstimator::FLOW_LINE_LIMIT = 30;
+const int DirectionEstimator::FRAME_SPAN = 1;
 
 DirectionEstimator::DirectionEstimator()
 {
@@ -35,11 +37,6 @@ void DirectionEstimator::init()
 	grayImg = cv::Mat(cv::Size(width, height), CV_8UC1);
 	prevGrayImg = cv::Mat(cv::Size(width, height), CV_8UC1);
 	pointDetector.init();
-
-	// (最大検出数=500、ピラミッドレイヤー間の縮小比率=1.2f、ピラミッドレベル数=8、エッジしきい値=31、最初のレベル=0、WTA_K=2、スコアタイプ=0、パッチサイズ=31)
-//	orbDetector = cv::ORB::create(500, 1.2f, 8);
-	//	int threshold = 10,	bool nonmaxSuppression = true, int 	type = FastFeatureDetector::TYPE_9_16)
-//	fastDetector = cv::FastFeatureDetector::create(10, true, cv::FastFeatureDetector::TYPE_9_16);
 }
 
 void DirectionEstimator::clear()
@@ -51,6 +48,9 @@ void DirectionEstimator::clear()
 	prevPoints.clear();
 	vtracked.clear();
 	status.clear();
+	vanishingPoint = cv::Point2f(0, 0);
+	matchFrameCount = 0;
+	matchVector.clear();
 }
 
 void DirectionEstimator::changeState(bool isSaveFrameImg)
@@ -80,25 +80,11 @@ void DirectionEstimator::estimate(cv::Mat &rgbaImg)
 		currentPoints[i] = currentKpts[i].pt;
 	}
 
-	// オプティカルフロー計算
-	if (prevPoints.size() > 0) {
-		std::vector<float> errors;
-		vtracked.clear();
-		status.clear();
-//		cv::calcOpticalFlowPyrLK(prevGrayImg, grayImg, prevPoints, vtracked, status, errors, cv::Size(15, 15), 3, cvTermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 30, 0.01), 0.5, 1);
-		cv::calcOpticalFlowPyrLK(prevGrayImg, grayImg, prevPoints, vtracked, status, errors);
+	// 特徴点マッチング
+	matchImg();
 
-		// 距離離れすぎてる点を削除
-		if (status.size() > 0) {
-			for (int i = 0; i < status.size(); ++i) {
-				if (status[i] == 0) continue;
-				else if (getDistance(prevPoints[i], vtracked[i]) >= 10) {
-					status[i] == 0;
-					continue;
-				}
-			}
-		}
-	}
+	// オプティカルフロー計算
+	calcOpticalFlow();
 
 	// 描画
 	draw(rgbaImg);
@@ -112,11 +98,66 @@ void DirectionEstimator::estimate(cv::Mat &rgbaImg)
 	for (int i = 0; i < ptsSize; ++i) {
 		prevPoints[i] = currentPoints[i];
 	}
+	// 特徴量
+	if (matchFrameCount == FRAME_SPAN) {
+		currentDescriptor.copyTo(prevDescriptor);
+		// frameカウント数リセット
+		matchFrameCount = 0;
+	}
 
 	// ループ停止 -> クリア
 	loopMutex.lock();
 	if (!isLoop) clear();
 	loopMutex.unlock();
+}
+
+// 特徴点マッチング
+void DirectionEstimator::matchImg() {
+	matchFrameCount++;
+	matchVector.clear();
+	if (matchFrameCount == FRAME_SPAN) {
+		// 特徴量記述子
+		pointDetector.describe(grayImg, currentKpts, currentDescriptor);
+		// 特徴点マッチング
+		if (prevPoints.size() > 0) {
+			// queryDescriptor, trainDescriptor
+			pointDetector.match(currentDescriptor, prevDescriptor, matchVector);
+		}
+	}
+}
+
+// オプティカルフロー計算
+void DirectionEstimator::calcOpticalFlow() {
+	vtracked.clear();
+	status.clear();
+	if (prevPoints.size() > 0) {
+		std::vector<float> errors;
+//		cv::calcOpticalFlowPyrLK(prevGrayImg, grayImg, prevPoints, vtracked, status, errors, cv::Size(15, 15), 3, cvTermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 30, 0.01), 0.5, 1);
+		cv::calcOpticalFlowPyrLK(prevGrayImg, grayImg, prevPoints, vtracked, status, errors);
+
+		// 距離離れすぎてる点を削除
+		if (status.size() > 0) {
+			for (int i = 0; i < status.size(); ++i) {
+				float dist = getDistance(prevPoints[i], vtracked[i]);
+				if (status[i] == 0) continue;
+				else if (dist >= FLOW_LINE_LIMIT) {
+//					LOGE("sqrt = %f", dist);
+					status[i] = 0;
+				}
+			}
+		}
+	}
+}
+
+void DirectionEstimator::calcVanishingPoint() {
+	// 特徴点のフロー(流れ)から消失点を計算
+//	if (status.size() > 0) {
+//		int flowNum = status.size();
+//		for (int i = 0; i < flowNum; ++i) {
+//			if (status[i] == 0) continue;
+//			cv::line(rgbaImg, prevPoints[i], vtracked[i], SCALAR_GREEN, 3);
+//		}
+//	}
 }
 
 float DirectionEstimator::getDistance(const cv::Point2f &pt1, const cv::Point2f &pt2)
@@ -125,6 +166,7 @@ float DirectionEstimator::getDistance(const cv::Point2f &pt1, const cv::Point2f 
 	float dy = pt2.y - pt1.y;
 	return sqrt(dx * dx + dy * dy);
 }
+
 // 描画処理
 void DirectionEstimator::draw(cv::Mat &rgbaImg)
 {
@@ -153,6 +195,15 @@ void DirectionEstimator::draw(cv::Mat &rgbaImg)
 			cv::line(rgbaImg, prevPoints[i], vtracked[i], SCALAR_GREEN, 3);
 		}
 	}
+
+	// 特徴点マッチング描画
+	if (matchFrameCount == FRAME_SPAN && matchVector.size() > 0) {
+		for (int i = 0; i < matchVector.size(); ++i) {
+			matchVector[i].queryIdx;
+			matchVector[i].trainIdx;
+		}
+	}
+
 	// 画像保存
 	loopMutex.lock();
 	if (isSaveFrameImg) {
@@ -162,7 +213,7 @@ void DirectionEstimator::draw(cv::Mat &rgbaImg)
 		time_st = localtime(&myTime.tv_sec);
 
 		char buff[128] = "";
-		sprintf(buff, "/storage/emulated/legacy/negishi.deadreckoning/Feature Image/%04d-%02d-%02d_%02d;%02d;%02d;%06ld.jpeg",
+		sprintf(buff, "/storage/emulated/legacy/negishi.deadreckoning/Feature Image/%04d-%02d-%02d_%02d;%02d;%02d;%06ld.jpg",
 				time_st->tm_year + 1900, time_st->tm_mon + 1, time_st->tm_mday, time_st->tm_hour,
 				time_st->tm_min, time_st->tm_sec, myTime.tv_usec);
 		cv::imwrite(buff, rgbaImg);

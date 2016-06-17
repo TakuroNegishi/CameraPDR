@@ -12,6 +12,9 @@ public:
 	void clear();
 	void changeState(bool isSaveFrameImg);
 	void estimate(cv::Mat &rgbaImg);
+	void matchImg();
+	void calcOpticalFlow();
+	void calcVanishingPoint();
 	float getDistance(const cv::Point2f &pt1, const cv::Point2f &pt2);
 	void draw(cv::Mat &rgbaImg);
 
@@ -22,6 +25,8 @@ private:
 	static const cv::Scalar SCALAR_BLUE;
 	static const cv::Scalar SCALAR_YELLOW;
 	static const cv::Scalar SCALAR_PURPLE;
+	static const int FLOW_LINE_LIMIT;	// 許容する特徴点の最大距離距離
+	static const int FRAME_SPAN;
 
 	int frameCount;
 	std::mutex loopMutex;	// ループ処理制御用Mutex
@@ -33,7 +38,12 @@ private:
 	std::vector<cv::KeyPoint> currentKpts;
 	std::vector<cv::Point2f> currentPoints;
 	std::vector<cv::Point2f> prevPoints;
-	std::vector<unsigned char> status;
-	std::vector<cv::Point2f> vtracked;
+	cv::Mat currentDescriptor;	// 現在画像の特徴量
+	cv::Mat prevDescriptor;		// 1フレーム前のの特徴量
+	int matchFrameCount;	// 特徴点マッチングを行うフレーム周期
+	std::vector<cv::DMatch> matchVector; // 現在画像と1フレーム前の特徴点のマッチング結果
 
+	std::vector<unsigned char> status;	// オプティカルフロー追跡結果(1:成功, 0:失敗)
+	std::vector<cv::Point2f> vtracked;
+	cv::Point2f vanishingPoint; // 現在フレームの消失点
 };

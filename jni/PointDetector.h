@@ -19,6 +19,7 @@ public:
 	void detect(const cv::Mat &img, std::vector<cv::KeyPoint> &vkpt) const;
 
 private:
+	int type; // 0:ORB 1:FAST
 	cv::Ptr<cv::ORB> mORBDetector;
 	cv::Ptr<cv::FastFeatureDetector> mFASTDetector;
 	cv::Ptr<cv::DescriptorMatcher> mMatcher;

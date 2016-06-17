@@ -42,4 +42,12 @@
         opencv:camera_id="any"
         opencv:show_fps="true" />
 
+    <Button
+        android:id="@+id/write_log_btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/save_start_stop_btn"
+        android:layout_alignEnd="@+id/save_start_stop_btn"
+        android:text="@string/write_log" />
+
 </RelativeLayout>
