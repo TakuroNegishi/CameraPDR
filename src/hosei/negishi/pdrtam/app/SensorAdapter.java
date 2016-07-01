@@ -100,7 +100,6 @@ public class SensorAdapter implements SensorEventListener {
 		SensorData sensorData = new SensorData(event.timestamp, elem);
 		if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {	// 加速度センサ
 			accelerometerList.add(sensorData);
-//			Log.e("onSensorChanged()", sensorData.toString());
 		} else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {	// ジャイロセンサ
 			gyroscopeList.add(sensorData);
 		}

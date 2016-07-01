@@ -4,7 +4,7 @@ package hosei.negishi.pdrtam.model;
 /**
  * 3次元ベクトルクラス
  */
-public class Vector3D implements Cloneable{	
+public class Vector3D implements Cloneable {	
 	public float x;
 	public float y;
 	public float z;

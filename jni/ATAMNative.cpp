@@ -18,7 +18,7 @@ extern "C" {
 DirectionEstimator dirEstimator; // デフォルトコンストラクタ
 
 JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_initNative(JNIEnv *env, jobject thiz);
-JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_mainProcNative(JNIEnv *env, jobject thiz, jlong addrRgba);
+JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_mainProcNative(JNIEnv *env, jobject thiz, jlong addrRgba, jlong nanoTime);
 JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_changeStateNative(JNIEnv *env, jobject thiz, jboolean isSaveFrameImg);
 JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_setStopNative(JNIEnv *env, jobject thiz);
 JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_setResetNative(JNIEnv *env, jobject thiz);
@@ -29,13 +29,13 @@ JNIEXPORT jint JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_getPointLeng
 
 JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_initNative(JNIEnv *env, jobject thiz) {
 //	atam.init();
-	dirEstimator.init();
+//	dirEstimator.init();
 }
 
-JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_mainProcNative (JNIEnv *env, jobject thiz, jlong addrRgba) {
+JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_mainProcNative (JNIEnv *env, jobject thiz, jlong addrRgba, jlong nanoTime) {
 	Mat& rgba = *(Mat*)addrRgba;
 //	atam.onceProc(rgba);
-	dirEstimator.estimate(rgba);
+	dirEstimator.estimate(rgba, nanoTime);
 
 	// TODO ここでATAM点群 >> GLRenderに移す
 

@@ -28,8 +28,8 @@ public class NativeAccesser {
 		initNative();
 	}
 	
-	public void mainProc(Mat rgba) {
-		mainProcNative(rgba.getNativeObjAddr());
+	public void mainProc(Mat rgba, long nanoTime) {
+		mainProcNative(rgba.getNativeObjAddr(), nanoTime);
 	}
 	
 	public void changeState(boolean isSaveFrameImg) {
@@ -60,7 +60,7 @@ public class NativeAccesser {
 	
 	// nativeメソッド
 	public native void initNative();
-	public native void mainProcNative(long matAddrRgba);
+	public native void mainProcNative(long matAddrRgba, long nanoTime);
 	public native void changeStateNative(boolean isSaveFrameImg);
 	public native void setStopNative();
 	public native void setResetNative();

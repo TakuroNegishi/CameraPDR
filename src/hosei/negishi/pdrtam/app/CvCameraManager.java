@@ -51,8 +51,10 @@ public class CvCameraManager implements CvCameraViewListener2 {
 
 	@Override
 	public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
+		// TODO ここでカメラ画像取得時間を文字列保存
+		long nanoTime = System.nanoTime();
 		mRgba = inputFrame.rgba();
-		NativeAccesser.getInstance().mainProc(mRgba);
+		NativeAccesser.getInstance().mainProc(mRgba, nanoTime);
 		return mRgba;
 	}
 	
