@@ -2,8 +2,8 @@
 #include <jni.h>
 #include <android/log.h>
 #include <opencv2/imgproc/imgproc.hpp>
-#include "opencv2/video/tracking.hpp"
-#include "opencv2/highgui/highgui.hpp"
+#include <opencv2/video/tracking.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 #include <stdio.h>
 #include <fstream>
@@ -14,17 +14,17 @@
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, __FILE__, __VA_ARGS__))
 
 const int DirectionEstimator::POINT_SIZE = 5;
-const cv::Scalar DirectionEstimator::SCALAR_RED(255, 0, 0);
-const cv::Scalar DirectionEstimator::SCALAR_GREEN(0, 255, 0);
-const cv::Scalar DirectionEstimator::SCALAR_BLUE(0, 0, 255);
-const cv::Scalar DirectionEstimator::SCALAR_YELLOW(255, 255, 0);
-const cv::Scalar DirectionEstimator::SCALAR_PURPLE(255, 0, 255);
-const cv::Scalar DirectionEstimator::SCALAR_CYAN(0, 255, 255);
-const cv::Scalar DirectionEstimator::SCALAR_BLACK(0, 0, 0);
-const cv::Scalar DirectionEstimator::SCALAR_WHITE(255, 255, 255);
+const Scalar DirectionEstimator::SCALAR_RED(255, 0, 0);
+const Scalar DirectionEstimator::SCALAR_GREEN(0, 255, 0);
+const Scalar DirectionEstimator::SCALAR_BLUE(0, 0, 255);
+const Scalar DirectionEstimator::SCALAR_YELLOW(255, 255, 0);
+const Scalar DirectionEstimator::SCALAR_PURPLE(255, 0, 255);
+const Scalar DirectionEstimator::SCALAR_CYAN(0, 255, 255);
+const Scalar DirectionEstimator::SCALAR_BLACK(0, 0, 0);
+const Scalar DirectionEstimator::SCALAR_WHITE(255, 255, 255);
 const int DirectionEstimator::FLOW_LINE_MIN_LIMIT = 0;
 const int DirectionEstimator::FLOW_LINE_MAX_LIMIT = 50;
-const int DirectionEstimator::FRAME_SPAN = 5;
+//const int DirectionEstimator::FRAME_SPAN = 5;
 
 DirectionEstimator::DirectionEstimator()
 {
@@ -34,7 +34,13 @@ DirectionEstimator::DirectionEstimator()
 
 DirectionEstimator::~DirectionEstimator()
 {
-
+	rgbaCopyImg.release();
+	prevImg.release();
+	grayImg.release();
+	grayCopyImg.release();
+	prevGrayImg.release();
+	prevStabGrayImg.release();
+	stabilizer.release();
 }
 
 void DirectionEstimator::init()
@@ -44,23 +50,27 @@ void DirectionEstimator::init()
 	// RGBAとGrayのサイズ
 	int width = 640;
 	int height = 480;
-	grayImg = cv::Mat(cv::Size(width, height), CV_8UC1);
-	prevGrayImg = cv::Mat(cv::Size(width, height), CV_8UC1);
+	rgbaCopyImg = Mat(Size(width, height), CV_8UC4);
+	prevImg = Mat(Size(width, height), CV_8UC4);
+	grayImg = Mat(Size(width, height), CV_8UC1);
+	grayCopyImg = Mat(Size(width, height), CV_8UC1);
+	prevGrayImg = Mat(Size(width, height), CV_8UC1);
+	prevStabGrayImg = Mat(Size(width, height), CV_8UC1);
 	pointDetector.init();
+	stabilizer.init();
 }
 
 void DirectionEstimator::clear()
 {
-	frameCount = 0;
+	isFirstFrame = true;
 	isSaveFrameImg = false;
-	currentKpts.clear();
+	prevKpts.clear();
 	currentPoints.clear();
 	prevPoints.clear();
-	status.clear();
-	vtracked.clear();
-	vanishingPointMean = cv::Point2f(320, 240);
+	subPrevPoints.clear();
+	vanishingPoint = Point2f(320, 240);
+	stabilizer.clear();
 
-//	vanishingPoints.clear();
 //	matchFrameCount = 0;
 //	matchVector.clear();
 }
@@ -68,12 +78,12 @@ void DirectionEstimator::clear()
 void DirectionEstimator::changeState(bool isSaveFrameImg)
 {
 	// lock_guardを使うと、スコープの終わりでlock()変数が破棄されるのにともなって、自動的にロックも解除される
-	std::lock_guard<std::mutex> lock(loopMutex);
+	lock_guard<mutex> lock(loopMutex);
 	isLoop = !isLoop;
 	this->isSaveFrameImg = isSaveFrameImg;
 }
 
-void DirectionEstimator::estimate(cv::Mat &rgbaImg, long nanoTime)
+void DirectionEstimator::estimate(Mat &rgbaImg, long nanoTime)
 {
 	// ループ開始チェック
 	loopMutex.lock();
@@ -81,47 +91,58 @@ void DirectionEstimator::estimate(cv::Mat &rgbaImg, long nanoTime)
 	loopMutex.unlock();
 	if (!loop) return;
 
-	cv::cvtColor(rgbaImg, grayImg, cv::COLOR_BGR2GRAY); // グレースケール
-	currentKpts.clear();	// 特徴点リストクリア
-	currentPoints.clear();
-	pointDetector.detect(grayImg, currentKpts); // 特徴点検出
-	// Point配列に移す
-	int ptsSize = currentKpts.size();
-	currentPoints.resize(ptsSize);
-	for (int i = 0; i < ptsSize; ++i) {
-		currentPoints[i] = currentKpts[i].pt;
+	cvtColor(rgbaImg, grayImg, COLOR_BGR2GRAY); // グレースケール
+	// 最初のフレームのみ,現在フレーム=過去フレーム
+	if (isFirstFrame) {
+		rgbaImg.copyTo(prevImg); // カラー画像
+		grayImg.copyTo(prevGrayImg); // グレー
 	}
 
-	// 特徴点マッチング
-//	matchImg();
-
-	// オプティカルフロー計算
-	calcOpticalFlow();
-
-	// 消失点計算
-//	calcVanishingPoint();
-	vanishingPointMean = getCrossPoint2();
-
-	// 描画
-	draw(rgbaImg);
-	// 特徴点を描画した画像を保存
-	saveImg(rgbaImg, nanoTime);
-
-	// 現在フレーム情報 -> 前フレーム情報に移行
-	grayImg.copyTo(prevGrayImg); // 画像
-	// 特徴点
-	if (prevPoints.size() > 0)
-		prevPoints.clear();
-	prevPoints.resize(ptsSize);
+	// 過去フレームの特徴点検出 -> オプティカルフローで現在フレームの特徴点検出
+	prevKpts.clear();	// 特徴点リストクリア
+	pointDetector.detect(prevGrayImg, prevKpts); // 1フレーム前の特徴点検出
+	// 一旦,Point配列に移す
+	int ptsSize = prevKpts.size();
+	subPrevPoints.clear();
+	subPrevPoints.resize(ptsSize);
 	for (int i = 0; i < ptsSize; ++i) {
-		prevPoints[i] = currentPoints[i];
+		subPrevPoints[i] = prevKpts[i].pt;
 	}
-	// 特徴量
-//	if (matchFrameCount == FRAME_SPAN) {
-//		currentDescriptor.copyTo(prevDescriptor);
-//		// frameカウント数リセット
-//		matchFrameCount = 0;
-//	}
+	// 対応のある過去,現在フレームの特徴点検出(prevPoints, currentPoints) -> スタビライズのためのオプティカルフロー計算
+	calcOpticalFlow(prevGrayImg, grayImg, subPrevPoints, prevPoints, currentPoints);
+	LOGE("sub = %d, prev = %d, cur = %d", subPrevPoints.size(), prevPoints.size(), currentPoints.size());
+
+	// スタビライズ&描画する前に、元画像を一旦コピー
+	rgbaImg.copyTo(rgbaCopyImg);
+	grayImg.copyTo(grayCopyImg);
+	// カメラ画像(書き換わる), 1フレーム前の画像, 1フレーム前の特徴点, 現在フレームの特徴点, 最初のフレームかのフラグ
+	stabilizer.estimate(rgbaImg, prevImg, prevPoints, currentPoints);
+	// スタビライズ後の画像(rgbaImg)からスタビライズ後のグレー画像(grayImg)生成
+	cvtColor(rgbaImg, grayImg, COLOR_BGR2GRAY); // グレースケール
+	// 最初のフレームは,1フレーム前のスタビライズ後グレー画像=現在フレームのスタビライズ後グレー画像
+	if (isFirstFrame) grayImg.copyTo(prevStabGrayImg); // スタビライズ後のグレー画像
+	// スタビライズ後の1フレ前の特徴点検出
+	prevKpts.clear();
+	pointDetector.detect(prevStabGrayImg, prevKpts);
+	// 一旦,Point配列に移す
+	ptsSize = prevKpts.size();
+	subPrevPoints.clear();
+	subPrevPoints.resize(ptsSize);
+	for (int i = 0; i < ptsSize; ++i) {
+		subPrevPoints[i] = prevKpts[i].pt;
+	}
+	// スタビライズ後の画像でオプティカルフロー再計算
+	calcOpticalFlow(prevStabGrayImg, grayImg, subPrevPoints, prevPoints, currentPoints);
+
+	vanishingPoint = getCrossPoint2(prevPoints, currentPoints); // 消失点計算
+	draw(rgbaImg); // 特徴点等の描画
+	saveImg(rgbaImg, nanoTime); // 特徴点を描画した画像を保存
+
+	// 現在フレーム情報 -> 過去フレーム情報
+	rgbaCopyImg.copyTo(prevImg); // カラー画像
+	grayCopyImg.copyTo(prevGrayImg); // グレー画像
+	grayImg.copyTo(prevStabGrayImg); // スタビライズ後のグレー画像
+	isFirstFrame = false;
 
 	// ループ停止 -> クリア
 	loopMutex.lock();
@@ -138,14 +159,14 @@ void DirectionEstimator::estimate(cv::Mat &rgbaImg, long nanoTime)
 //		pointDetector.describe(grayImg, currentKpts, currentDescriptor);
 //		// 特徴点マッチング
 //		if (prevDescriptor.total() > 0) {
-//			std::vector<cv::DMatch> dmatch12, dmatch21;
+//			vector<DMatch> dmatch12, dmatch21;
 //			pointDetector.match(currentDescriptor, prevDescriptor, dmatch12); // current -> prev
 //			pointDetector.match(prevDescriptor, currentDescriptor, dmatch21); // prev -> current
 //
 //			for (size_t i = 0; i < dmatch12.size(); ++i) {
 //				// img1 -> img2 と img2 -> img1の結果が一致しているか検証
-//				cv::DMatch m12 = dmatch12[i];
-//				cv::DMatch m21 = dmatch21[m12.trainIdx];
+//				DMatch m12 = dmatch12[i];
+//				DMatch m21 = dmatch21[m12.trainIdx];
 //				if (m21.trainIdx == m12.queryIdx)
 //					matchVector.push_back(m12);
 //			}
@@ -157,36 +178,40 @@ void DirectionEstimator::estimate(cv::Mat &rgbaImg, long nanoTime)
 //}
 
 // オプティカルフロー計算
-void DirectionEstimator::calcOpticalFlow() {
-	vtracked.clear();
-	status.clear();
-
-	if (prevPoints.size() > 0) {
-		std::vector<float> errors;
+void DirectionEstimator::calcOpticalFlow(const Mat &prev, const Mat &cur,
+		const vector<Point2f> &subPrevPoints, vector<Point2f> &prevPoints, vector<Point2f> &trackedPoints)
+{
+	if (subPrevPoints.size() > 0) {
+		vector<float> errors;
+		vector<unsigned char> status;	// オプティカルフロー追跡結果(1:成功, 0:失敗)
+		vector<Point2f> vtracked;
 		// 勾配(Lucas-Kanade)法
-//		cv::calcOpticalFlowPyrLK(prevGrayImg, grayImg, prevPoints, vtracked, status, errors, cv::Size(15, 15), 3, cvTermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 30, 0.01), 0.5, 1);
-		cv::calcOpticalFlowPyrLK(prevGrayImg, grayImg, prevPoints, vtracked, status, errors);
+//		calcOpticalFlowPyrLK(prevGrayImg, grayImg, prevPoints, vtracked, status, errors, Size(15, 15), 3, cvTermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 30, 0.01), 0.5, 1);
+		calcOpticalFlowPyrLK(prev, cur, subPrevPoints, vtracked, status, errors);
 
-		// ブロックマッチング法--------
-//		calcOpticalFlowFarneback(prevGrayImg, grayImg, flow, 0.5, 1, 15, 1, 5, 1.1, OPTFLOW_FARNEBACK_GAUSSIAN);
-		//--------------------
-
-		// 距離が離れすぎてる点を削除
 		if (status.size() > 0) {
+			// prevPoints, trackedPointsに過去,現在の特徴点を入れる
+			prevPoints.clear();
+			prevPoints.reserve(subPrevPoints.size());
+			trackedPoints.clear();
+			trackedPoints.reserve(vtracked.size());
 			for (int i = 0; i < status.size(); ++i) {
-				float dist = getDistance(prevPoints[i], vtracked[i]);
+				// 距離が離れすぎているフローは排除
+				float dist = getDistance(subPrevPoints[i], vtracked[i]);
 				if (status[i] == 0) continue;
-				else if (dist < FLOW_LINE_MIN_LIMIT || dist > FLOW_LINE_MAX_LIMIT) {
-					status[i] = 0;
+				else if (dist >= FLOW_LINE_MIN_LIMIT && dist <= FLOW_LINE_MAX_LIMIT) {
+					prevPoints.push_back(subPrevPoints[i]);
+					trackedPoints.push_back(vtracked[i]);
 				}
 			}
 		}
+		LOGE("calOF: sub = %d, vtracked = %d, prevPoints = %d, trackedPoints = %d", subPrevPoints.size(), vtracked.size(), prevPoints.size(), trackedPoints.size());
 	}
 }
 
 //
-cv::Point2f DirectionEstimator::getCrossPoint(cv::Point2f &firstLinePoint1, cv::Point2f &firstLinePoint2,
-		cv::Point2f &secondLinePoint1, cv::Point2f &secondLinePoint2)
+Point2f DirectionEstimator::getCrossPoint(Point2f &firstLinePoint1, Point2f &firstLinePoint2,
+		Point2f &secondLinePoint1, Point2f &secondLinePoint2)
 {
 	// S1　= {(P4.X - P2.X) * (P1.Y - P2.Y) - (P4.Y - P2.Y) * (P1.X - P2.X)} / 2
 	float s1 = ((secondLinePoint2.x - secondLinePoint1.x) * (firstLinePoint1.y - secondLinePoint1.y)
@@ -200,48 +225,49 @@ cv::Point2f DirectionEstimator::getCrossPoint(cv::Point2f &firstLinePoint1, cv::
 	// C1.Y　= P1.Y + (P3.Y - P1.Y) * S1 / (S1 + S2)
 	float cy = firstLinePoint1.y + (firstLinePoint2.y - firstLinePoint1.y) * s1 / (s1 + s2);
 
-	return cv::Point2f(cx, cy);
+	return Point2f(cx, cy);
 }
 
-cv::Point2f DirectionEstimator::getCrossPoint2()
+Point2f DirectionEstimator::getCrossPoint2(const vector<Point2f> &prevPoints, const vector<Point2f> &curPoints)
 {
-	float X = 0;
-	float Y = 0;
-	if (status.size() > 0) {
-		int flowNum = status.size();
-		float a = 0;
-		float b = 0;
-		float p = 0;
-		float c = 0;
-		float d = 0;
-		float q = 0;
-		for (int i = 0; i < flowNum; ++i) {
-			if (status[i] == 0) continue;
-			cv::Point2f p1 = vtracked[i];
-			cv::Point2f p2 = prevPoints[i];
-
-			// 連立方程式公式 - https://t-sv.sakura.ne.jp/text/num_ana/ren_eq22/ren_eq22.html
-//			sumX += 2*X * (p1.y - p2.y) * (p1.y - p2.y) + 2*Y * (p2.x - p1.x) * (p1.y - p2.y)
-//					+ 2 * (p1.x * p2.y - p2.x * p1.y) * (p1.y - p2.y); // = 0 偏微分X
-//			sumY += 2*Y * (p2.x - p1.x) * (p2.x - p1.x) + 2*X * (p2.x - p1.x) * (p1.y - p2.y)
-//					+ 2 * (p1.x * p2.y - p2.x * p1.y) * (p2.x - p1.x); // = 0 偏微分Y
-
-			a += (p1.y - p2.y) * (p1.y - p2.y);
-			b += (p2.x - p1.x) * (p1.y - p2.y);
-			p += (p1.x * p2.y - p2.x * p1.y) * (p1.y - p2.y);
-			c += (p2.x - p1.x) * (p1.y - p2.y);
-			d += (p2.x - p1.x) * (p2.x - p1.x);
-			q += (p1.x * p2.y - p2.x * p1.y) * (p2.x - p1.x);
-		}
-		p *= -1;
-		q *= -1;
-		X = (d * p - b * q) / (a * d - b * c);
-		Y = (a * q - c * p) / (a * d - b * c);
+	float X = 320;
+	float Y = 240;
+	if (prevPoints.size() != curPoints.size()) {
+		LOGE("crossP miss! prevPoints = %d, curPoints = %d", prevPoints.size(), curPoints.size());
+		return Point2f(X, Y);
 	}
-	return cv::Point2f(X, Y);
+	int flowNum = curPoints.size();
+	float a = 0;
+	float b = 0;
+	float p = 0;
+	float c = 0;
+	float d = 0;
+	float q = 0;
+	for (int i = 0; i < flowNum; ++i) {
+		Point2f p1 = curPoints[i];
+		Point2f p2 = prevPoints[i];
+
+		// 連立方程式公式 - https://t-sv.sakura.ne.jp/text/num_ana/ren_eq22/ren_eq22.html
+//		sumX += 2*X * (p1.y - p2.y) * (p1.y - p2.y) + 2*Y * (p2.x - p1.x) * (p1.y - p2.y)
+//				+ 2 * (p1.x * p2.y - p2.x * p1.y) * (p1.y - p2.y); // = 0 偏微分X
+//		sumY += 2*Y * (p2.x - p1.x) * (p2.x - p1.x) + 2*X * (p2.x - p1.x) * (p1.y - p2.y)
+//				+ 2 * (p1.x * p2.y - p2.x * p1.y) * (p2.x - p1.x); // = 0 偏微分Y
+
+		a += (p1.y - p2.y) * (p1.y - p2.y);
+		b += (p2.x - p1.x) * (p1.y - p2.y);
+		p += (p1.x * p2.y - p2.x * p1.y) * (p1.y - p2.y);
+		c += (p2.x - p1.x) * (p1.y - p2.y);
+		d += (p2.x - p1.x) * (p2.x - p1.x);
+		q += (p1.x * p2.y - p2.x * p1.y) * (p2.x - p1.x);
+	}
+	p *= -1;
+	q *= -1;
+	X = (d * p - b * q) / (a * d - b * c);
+	Y = (a * q - c * p) / (a * d - b * c);
+	return Point2f(X, Y);
 }
 
-float DirectionEstimator::getDistance(const cv::Point2f &pt1, const cv::Point2f &pt2)
+float DirectionEstimator::getDistance(const Point2f &pt1, const Point2f &pt2)
 {
 	float dx = pt2.x - pt1.x;
 	float dy = pt2.y - pt1.y;
@@ -249,63 +275,74 @@ float DirectionEstimator::getDistance(const cv::Point2f &pt1, const cv::Point2f 
 }
 
 // 描画処理
-void DirectionEstimator::draw(cv::Mat &rgbaImg)
+void DirectionEstimator::draw(Mat &rgbaImg)
 {
 
 	// １フレーム前の特徴点
-	if (prevPoints.size() > 0) {
-		for (int i = 0, n = prevPoints.size(); i < n; ++i) {
-			// 描画先画像, 円中心, 半径, 色, -1=塗りつぶし
-			cv::circle(rgbaImg, prevPoints[i], POINT_SIZE, SCALAR_BLUE, -1);
-		}
-	}
-
+	drawPoints(rgbaImg, prevPoints, SCALAR_BLUE);
 	// 現在フレームの特徴点
-	if (currentPoints.size() > 0) {
-		for (int i = 0, n = currentPoints.size(); i < n; ++i) {
-			// 描画先画像, 円中心, 半径, 色, -1=塗りつぶし
-			cv::circle(rgbaImg, currentPoints[i], POINT_SIZE, SCALAR_YELLOW, -1);
-		}
-	}
+	drawPoints(rgbaImg, currentPoints, SCALAR_YELLOW);
 
 	// フロー描画
-	if (status.size() > 0) {
-		int flowNum = status.size();
+	if (prevPoints.size() == currentPoints.size()) {
+		int flowNum = prevPoints.size();
 		for (int i = 0; i < flowNum; ++i) {
-			if (status[i] == 0) continue;
-			cv::line(rgbaImg, prevPoints[i], vtracked[i], SCALAR_GREEN, 3);
+			line(rgbaImg, prevPoints[i], currentPoints[i], SCALAR_GREEN, 3);
 		}
 	}
 
-	// BMフロー
-
-//	  for (i = 0; i < velx->width; i++) {
-//	    for (j = 0; j < vely->height; j++) {
-//	      dx = (int) cvGetReal2D (velx, j, i);
-//	      dy = (int) cvGetReal2D (vely, j, i);
-//	      cvLine (dst_img, cvPoint (i * block_size, j * block_size),
-//	              cvPoint (i * block_size + dx, j * block_size + dy), CV_RGB (255, 0, 0), 1, CV_AA, 0);
-//	    }
-//	  }
-
 	// 消失点描画
-//	if (vanishingPoints.size() > 0) {
-//		for (int i = 0, n = vanishingPoints.size(); i < n; ++i) {
-//			// 描画先画像, 円中心, 半径, 色, -1=塗りつぶし
-//			cv::circle(rgbaImg, vanishingPoints[i], POINT_SIZE, SCALAR_RED, -1);
-//		}
-//	}
-	cv::circle(rgbaImg, vanishingPointMean, POINT_SIZE*3, SCALAR_CYAN, -1);
+	circle(rgbaImg, vanishingPoint, POINT_SIZE*3, SCALAR_CYAN, -1);
 
 	// 特徴点マッチング描画
 //	if (matchFrameCount == FRAME_SPAN && matchVector.size() > 0) {
 //		for (int i = 0; i < matchVector.size(); ++i) {
-//			cv::line(rgbaImg, prevPoints[matchVector[i].trainIdx], currentPoints[matchVector[i].queryIdx], SCALAR_RED, 3);
+//			line(rgbaImg, prevPoints[matchVector[i].trainIdx], currentPoints[matchVector[i].queryIdx], SCALAR_RED, 3);
 //		}
 //	}
 }
 
-void DirectionEstimator::saveImg(cv::Mat &rgbaImg, long nanoTime)
+void DirectionEstimator::drawPoints(Mat &rgbaImg, const vector<Point2f> &points, const Scalar color)
+{
+	if (points.size() > 0) {
+		for (int i = 0, n = points.size(); i < n; ++i) {
+			// 描画先画像, 円中心, 半径, 色, -1=塗りつぶし
+			circle(rgbaImg, points[i], POINT_SIZE, color, -1);
+		}
+	}
+}
+
+//オプティカルフローを可視化する。
+//縦横のベクトルの強さを色に変換する。
+//左：赤、右：緑、上：青、下：黄色
+void DirectionEstimator::visualizeFarnebackFlow(const Mat& flow, Mat& visual_flow)
+{
+    visual_flow = Mat::zeros(visual_flow.rows, visual_flow.cols, visual_flow.type());
+    int flow_ch = flow.channels();
+    int vis_ch = visual_flow.channels();//3のはず
+    for(int y = 0; y < flow.rows; y++) {
+        float* psrc = (float*)(flow.data + flow.step * y);
+        float* pdst = (float*)(visual_flow.data + visual_flow.step * y);
+        for(int x = 0; x < flow.cols; x++) {
+            float dx = psrc[0];
+            float dy = psrc[1];
+            float r = (dx < 0.0) ? abs(dx) : 0;
+            float g = (dx > 0.0) ? dx : 0;
+            float b = (dy < 0.0) ? abs(dy) : 0;
+            r += (dy > 0.0) ? dy : 0;
+            g += (dy > 0.0) ? dy : 0;
+
+            pdst[0] = b;
+            pdst[1] = g;
+            pdst[2] = r;
+
+            psrc += flow_ch;
+            pdst += vis_ch;
+        }
+    }
+}
+
+void DirectionEstimator::saveImg(Mat &rgbaImg, long nanoTime)
 {
 	// 画像保存
 	loopMutex.lock();
@@ -319,8 +356,8 @@ void DirectionEstimator::saveImg(cv::Mat &rgbaImg, long nanoTime)
 		sprintf(buff, "/storage/emulated/legacy/negishi.deadreckoning/Feature Image/%04d-%02d-%02d_%02d;%02d;%02d;%06ld.jpg",
 				time_st->tm_year + 1900, time_st->tm_mon + 1, time_st->tm_mday, time_st->tm_hour,
 				time_st->tm_min, time_st->tm_sec, myTime.tv_usec);
-		cv::cvtColor(rgbaImg, rgbaImg, cv::COLOR_BGR2RGB);
-		cv::imwrite(buff, rgbaImg);
+		cvtColor(rgbaImg, rgbaImg, COLOR_BGR2RGB); // なぜか色が変わるから対処
+		imwrite(buff, rgbaImg);
 	}
 	loopMutex.unlock();
 }

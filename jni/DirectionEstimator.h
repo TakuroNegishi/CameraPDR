@@ -2,8 +2,12 @@
 
 #include <mutex>
 #include <opencv2/core.hpp>
-#include <opencv2/superres/optical_flow.hpp>
+//#include <opencv2/superres/optical_flow.hpp>
 #include "PointDetector.h"
+#include "VideoStabilizer.h"
+
+using namespace std;
+using namespace cv;
 
 class DirectionEstimator
 {
@@ -13,47 +17,57 @@ public:
 	void init();
 	void clear();
 	void changeState(bool isSaveFrameImg);
-	void estimate(cv::Mat &rgbaImg, long nanoTime);
-//	void matchImg();
-	void calcOpticalFlow();
-	cv::Point2f getCrossPoint(cv::Point2f &firstLinePoint1, cv::Point2f &firstLinePoint2,
-			cv::Point2f &secondLinePoint1, cv::Point2f &secondLinePoint2);
-	cv::Point2f getCrossPoint2();
-	float getDistance(const cv::Point2f &pt1, const cv::Point2f &pt2);
-	void draw(cv::Mat &rgbaImg);
-	void saveImg(cv::Mat &rgbaImg, long nanoTime);
+	void estimate(Mat &rgbaImg, long nanoTime);
+	void calcOpticalFlow(const Mat &prevGrayImg, const Mat &curGrayImg,
+			const vector<Point2f> &subPrevPoints, vector<Point2f> &prevPoints, vector<Point2f> &trackedPoints);
+	Point2f getCrossPoint(Point2f &firstLinePoint1, Point2f &firstLinePoint2,
+			Point2f &secondLinePoint1, Point2f &secondLinePoint2);
+	Point2f getCrossPoint2(const vector<Point2f> &prevPoints, const vector<Point2f> &curPoints);
+	float getDistance(const Point2f &pt1, const Point2f &pt2);
+	void draw(Mat &rgbaImg);
+	void drawPoints(Mat &rgbaImg, const vector<Point2f> &points, const Scalar color);
+	void visualizeFarnebackFlow(const Mat& flow, Mat& visual_flow);
+	void saveImg(Mat &rgbaImg, long nanoTime);
 
 private:
 	static const int POINT_SIZE;			// 特徴点の描画半径
-	static const cv::Scalar SCALAR_RED;
-	static const cv::Scalar SCALAR_GREEN;
-	static const cv::Scalar SCALAR_BLUE;
-	static const cv::Scalar SCALAR_YELLOW;
-	static const cv::Scalar SCALAR_PURPLE;
-	static const cv::Scalar SCALAR_CYAN;
-	static const cv::Scalar SCALAR_BLACK;
-	static const cv::Scalar SCALAR_WHITE;
+	static const Scalar SCALAR_RED;
+	static const Scalar SCALAR_GREEN;
+	static const Scalar SCALAR_BLUE;
+	static const Scalar SCALAR_YELLOW;
+	static const Scalar SCALAR_PURPLE;
+	static const Scalar SCALAR_CYAN;
+	static const Scalar SCALAR_BLACK;
+	static const Scalar SCALAR_WHITE;
 	static const int FLOW_LINE_MIN_LIMIT;	// 許容する特徴点の最小距離距離
 	static const int FLOW_LINE_MAX_LIMIT;	// 許容する特徴点の最大距離距離
-	static const int FRAME_SPAN;
+//	static const int FRAME_SPAN;
 
-	int frameCount;
-	std::mutex loopMutex;	// ループ処理制御用Mutex
+	mutex loopMutex;	// ループ処理制御用Mutex
+	bool isFirstFrame;
 	bool isLoop;
 	bool isSaveFrameImg;
-	cv::Mat grayImg;		// 現在フレームのグレー画像
-	cv::Mat prevGrayImg;	// 1フレーム前のグレー画像
+	Mat rgbaCopyImg;	//
+	Mat prevImg;		// 1フレーム前のカラー画像
+	Mat grayImg;		// 現在フレームのグレー画像
+	Mat grayCopyImg;	//
+	Mat prevGrayImg;	// 1フレーム前のグレー画像
+	Mat prevStabGrayImg;	// 1フレーム前のスタビライズ後のグレー画像
 	PointDetector pointDetector;
-	std::vector<cv::KeyPoint> currentKpts;
-	std::vector<cv::Point2f> currentPoints;
-	std::vector<cv::Point2f> prevPoints;
-//	cv::Mat currentDescriptor;	// 現在画像の特徴量
-//	cv::Mat prevDescriptor;		// 1フレーム前のの特徴量
-//	int matchFrameCount;	// 特徴点マッチングを行うフレーム周期
-//	std::vector<cv::DMatch> matchVector; // 現在画像と1フレーム前の特徴点のマッチング結果
+	vector<KeyPoint> prevKpts;
+	vector<Point2f> currentPoints;
+	vector<Point2f> prevPoints;	// 1フレーム前の特徴点
+	vector<Point2f> subPrevPoints; // 1フレーム前の特徴点(保存用)
+//	vector<Point2f> flowPoints;
+//	Ptr<superres::DenseOpticalFlowExt> opticalFlow;
+//	Mat flow;
+	VideoStabilizer stabilizer;
 
-	std::vector<unsigned char> status;	// オプティカルフロー追跡結果(1:成功, 0:失敗)
-	std::vector<cv::Point2f> vtracked;
-//	std::vector<cv::Point2f> vanishingPoints; // 現在フレームの消失点
-	cv::Point2f vanishingPointMean; // 現在フレームの消失点の平均点
+//	Mat currentDescriptor;	// 現在画像の特徴量
+//	Mat prevDescriptor;		// 1フレーム前のの特徴量
+//	int matchFrameCount;	// 特徴点マッチングを行うフレーム周期
+//	vector<DMatch> matchVector; // 現在画像と1フレーム前の特徴点のマッチング結果
+
+//	vector<unsigned char> status;	// オプティカルフロー追跡結果(1:成功, 0:失敗)
+	Point2f vanishingPoint; // 現在フレームの消失点
 };

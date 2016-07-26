@@ -7,6 +7,9 @@
 #include <opencv2/core.hpp>
 #include "opencv2/features2d.hpp"
 
+using namespace cv;
+using namespace std;
+
 class PointDetector
 {
 public:
@@ -14,14 +17,14 @@ public:
 	~PointDetector();
 
 	void init();
-	void match(const cv::Mat &query, const cv::Mat &train, std::vector<cv::DMatch> &vmatch) const;
-	void describe(const cv::Mat &img, std::vector<cv::KeyPoint> &vkpt, cv::Mat &vdesc) const;
-	void detect(const cv::Mat &img, std::vector<cv::KeyPoint> &vkpt) const;
+	void match(const Mat &query, const Mat &train, vector<DMatch> &vmatch) const;
+	void describe(const Mat &img, vector<KeyPoint> &vkpt, Mat &vdesc) const;
+	void detect(const Mat &img, vector<KeyPoint> &vkpt) const;
 
 private:
 	int type; // 0:ORB 1:FAST
-	cv::Ptr<cv::ORB> mORBDetector;
-	cv::Ptr<cv::FastFeatureDetector> mFASTDetector;
-	cv::Ptr<cv::DescriptorMatcher> mMatcher;
+	Ptr<ORB> mORBDetector;
+	Ptr<FastFeatureDetector> mFASTDetector;
+	Ptr<DescriptorMatcher> mMatcher;
 };
 
