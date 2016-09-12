@@ -1,10 +1,11 @@
 #pragma once
 
 #include <mutex>
+#include <thread>
 #include <opencv2/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
 #include "PointDetector.h"
 #include "MTQueue.h"
+#include "MovingAverageFilter.h"
 
 using namespace std;
 using namespace cv;
@@ -18,15 +19,20 @@ public:
 	void clear();
 	void changeState(bool isSaveFrameImg);
 	void estimate(Mat &rgbaImg, long milliTime);
-	void calcOpticalFlow(const Mat &prevGrayImg, const Mat &curGrayImg,
-			const vector<Point2f> &subPrevPoints, vector<Point2f> &prevPoints, vector<Point2f> &trackedPoints);
-	Point2f getCrossPoint(Point2f &firstLinePoint1, Point2f &firstLinePoint2,
-			Point2f &secondLinePoint1, Point2f &secondLinePoint2);
-	Point2f getCrossPoint2(const vector<Point2f> &prevPoints, const vector<Point2f> &curPoints);
+
+	void procCalcVP();
+	vector<DMatch> calcMatchingFlow(const vector<KeyPoint> &prevKpts, const Mat &prevDesc,
+			const vector<KeyPoint> &currentKpts, const Mat &currentDesc);
+
+	Point2f getCrossPoint(const vector<DMatch>& matchVector,
+		const vector<KeyPoint>& currentKpts, const vector<KeyPoint>& prevKpts);
 	float getDistance(const Point2f &pt1, const Point2f &pt2);
-	void draw(Mat &rgbaImg);
+	void saveDebug(Mat &img, const vector<KeyPoint> &prev, const vector<KeyPoint> &cur, long milliTime);
+	void saveDebug(Mat &img, const vector<DMatch> &matches, const vector<KeyPoint> &prev,
+			const vector<KeyPoint> &cur, long milliTime);
 	void drawPoints(Mat &rgbaImg, const vector<Point2f> &points, const Scalar color);
 	void saveImg(Mat &rgbaImg, long milliTime);
+	void saveImg(Mat &rgbaImg, Mat &grayImg, long milliTime);
 
 private:
 	static const int POINT_SIZE;			// 特徴点の描画半径
@@ -42,6 +48,10 @@ private:
 	static const int FLOW_LINE_MAX_LIMIT;	// 許容する特徴点の最大距離距離
 	static const int IMG_WIDTH;
 	static const int IMG_HEIGHT;
+	static const int ERROR_VP;
+	static const int LEFT_VP;
+	static const int NORMAL_VP;
+	static const int RIGHT_VP;
 
 	int frameCount;
 	long sumElapsedTime;
@@ -58,11 +68,17 @@ private:
 	Mat grayImg;		// 現在フレームのグレー画像
 	PointDetector pointDetector;
 	vector<KeyPoint> currentKpts;
-	vector<Point2f> prevPoints;	// 1フレーム前の特徴点
 
-//	Mat currentDescriptor;	// 現在画像の特徴量
-//	Mat prevDescriptor;		// 1フレーム前のの特徴量
-//	int matchFrameCount;	// 特徴点マッチングを行うフレーム周期
-//	vector<DMatch> matchVector; // 現在画像と1フレーム前の特徴点のマッチング結果
-	Point2f vanishingPoint; // 現在フレームの消失点
+	thread vpCalcThread;
+	mutex vpThreadMutex;
+	bool isVPThreadLoop;
+
+	PointDetector vpPointDetector;
+	vector<KeyPoint> prevKpts;
+	Mat prevDesc;
+	std::vector<cv::Point2f> pointHistory;
+	std::vector<cv::Point2f> pointHistoryMA;
+	MovingAverageFilter maFilterX;
+	MovingAverageFilter maFilterY;
+	int vpStatus;
 };

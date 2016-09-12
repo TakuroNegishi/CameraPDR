@@ -15,17 +15,16 @@ public:
 	void init();
 	void clear();
 	void release();
-	void set(const long& time, const cv::Mat& a_img, const cv::Mat& a_grayImg);
+	void set(long time, cv::Mat a_img, cv::Mat a_grayImg);
 	long timeStamp;
 	cv::Mat img;
 	cv::Mat grayImg;
+	std::vector<cv::KeyPoint> kpts;
+	cv::Mat desc;
 private:
 	static const int IMG_WIDTH;
 	static const int IMG_HEIGHT;
 
-
-	std::vector<cv::KeyPoint> currentKpts;
-	cv::Mat currentDesc;
 	std::vector<cv::DMatch> matchVector;
 	cv::Point vanishingPoint;
 	cv::Point vanishingFltPoint;

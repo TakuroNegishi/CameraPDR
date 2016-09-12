@@ -14,8 +14,10 @@ class MTQueue
 public:
 	MTQueue();
 	void clear();
-	void push(KeyFrame& kf);
+	void push(KeyFrame kf);
 	KeyFrame pop();
+	void sendFinishPopSignal();
+	int size();
 
 private:
 	static const int CAPACITY;

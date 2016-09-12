@@ -30,9 +30,10 @@ void KeyFrame::init()
 
 void KeyFrame::clear()
 {
+	timeStamp = -1;
 	img = Mat(Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC4);
 	grayImg = Mat(Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC1);
-	currentKpts.clear();
+	kpts.clear();
 	matchVector.clear();
 }
 
@@ -40,10 +41,10 @@ void KeyFrame::release()
 {
 	img.release();
 	grayImg.release();
-	currentDesc.release();
+	desc.release();
 }
 
-void KeyFrame::set(const long& time, const cv::Mat& a_img, const cv::Mat& a_grayImg)
+void KeyFrame::set(long time, cv::Mat a_img, cv::Mat a_grayImg)
 {
 	timeStamp = time;
 	img = a_img;

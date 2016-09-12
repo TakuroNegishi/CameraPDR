@@ -20,7 +20,9 @@ PointDetector::~PointDetector()
 void PointDetector::init()
 {
 	// threshold=0.001(default)
-	mAKAZEDetector = AKAZE::create(5, 0, 3, 0.0005, 4, 4, 1);;
+	mAKAZEDetector = AKAZE::create(5, 0, 3, 0.001, 4, 4, 1);;
+//	mAKAZEDetector = AKAZE::create(5, 0, 3, 0.0005, 4, 4, 1);;
+
 	//	int threshold = 10,	bool nonmaxSuppression = true, int 	type = FastFeatureDetector::TYPE_9_16)
 	/* non-maxsuppression = 「最大でない値は(すべて)値を抑える(=値をゼロにする)」 */
 	mFASTDetector = FastFeatureDetector::create(40, true, FastFeatureDetector::TYPE_9_16);
