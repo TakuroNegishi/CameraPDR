@@ -1,5 +1,7 @@
 package hosei.negishi.pdrtam.app;
 
+import java.util.List;
+
 import hosei.negishi.pdrtam.R;
 
 import org.opencv.android.BaseLoaderCallback;
@@ -11,9 +13,12 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.hardware.Camera;
+import android.hardware.Camera.Parameters;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -57,7 +62,7 @@ public class MainActivity extends Activity implements OnClickListener,
 		// getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN); //
 		// ステータスバー非表示
 		// requestWindowFeature(Window.FEATURE_NO_TITLE); // タイトルバー非表示
-
+	
 		setContentView(R.layout.activity_main);
 		appContext = getApplicationContext();
 		initTAMMode();

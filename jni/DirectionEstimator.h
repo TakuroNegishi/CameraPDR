@@ -2,9 +2,9 @@
 
 #include <mutex>
 #include <opencv2/core.hpp>
-//#include <opencv2/superres/optical_flow.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include "PointDetector.h"
-#include "VideoStabilizer.h"
+#include "MTQueue.h"
 
 using namespace std;
 using namespace cv;
@@ -17,7 +17,7 @@ public:
 	void init();
 	void clear();
 	void changeState(bool isSaveFrameImg);
-	void estimate(Mat &rgbaImg, long nanoTime);
+	void estimate(Mat &rgbaImg, long milliTime);
 	void calcOpticalFlow(const Mat &prevGrayImg, const Mat &curGrayImg,
 			const vector<Point2f> &subPrevPoints, vector<Point2f> &prevPoints, vector<Point2f> &trackedPoints);
 	Point2f getCrossPoint(Point2f &firstLinePoint1, Point2f &firstLinePoint2,
@@ -26,8 +26,7 @@ public:
 	float getDistance(const Point2f &pt1, const Point2f &pt2);
 	void draw(Mat &rgbaImg);
 	void drawPoints(Mat &rgbaImg, const vector<Point2f> &points, const Scalar color);
-	void visualizeFarnebackFlow(const Mat& flow, Mat& visual_flow);
-	void saveImg(Mat &rgbaImg, long nanoTime);
+	void saveImg(Mat &rgbaImg, long milliTime);
 
 private:
 	static const int POINT_SIZE;			// 特徴点の描画半径
@@ -41,33 +40,29 @@ private:
 	static const Scalar SCALAR_WHITE;
 	static const int FLOW_LINE_MIN_LIMIT;	// 許容する特徴点の最小距離距離
 	static const int FLOW_LINE_MAX_LIMIT;	// 許容する特徴点の最大距離距離
-//	static const int FRAME_SPAN;
+	static const int IMG_WIDTH;
+	static const int IMG_HEIGHT;
 
+	int frameCount;
+	long sumElapsedTime;
 	mutex loopMutex;	// ループ処理制御用Mutex
+	MTQueue keyFrameQueue; // 画像処理用キュー
 	bool isFirstFrame;
+	bool isFindKeyFrame;
 	bool isLoop;
 	bool isSaveFrameImg;
-	Mat rgbaCopyImg;	//
-	Mat prevImg;		// 1フレーム前のカラー画像
+	long prevKFTime;		// 前回のキーフレームの時間
+	KeyFrame lastKF;	// 最新キーフレーム候補
+	Mat lastImg;		// キーフレーム候補のカラー画像
+	Mat lastGrayImg;		// キーフレーム候補のカラー画像
 	Mat grayImg;		// 現在フレームのグレー画像
-	Mat grayCopyImg;	//
-	Mat prevGrayImg;	// 1フレーム前のグレー画像
-	Mat prevStabGrayImg;	// 1フレーム前のスタビライズ後のグレー画像
 	PointDetector pointDetector;
-	vector<KeyPoint> prevKpts;
-	vector<Point2f> currentPoints;
+	vector<KeyPoint> currentKpts;
 	vector<Point2f> prevPoints;	// 1フレーム前の特徴点
-	vector<Point2f> subPrevPoints; // 1フレーム前の特徴点(保存用)
-//	vector<Point2f> flowPoints;
-//	Ptr<superres::DenseOpticalFlowExt> opticalFlow;
-//	Mat flow;
-	VideoStabilizer stabilizer;
 
 //	Mat currentDescriptor;	// 現在画像の特徴量
 //	Mat prevDescriptor;		// 1フレーム前のの特徴量
 //	int matchFrameCount;	// 特徴点マッチングを行うフレーム周期
 //	vector<DMatch> matchVector; // 現在画像と1フレーム前の特徴点のマッチング結果
-
-//	vector<unsigned char> status;	// オプティカルフロー追跡結果(1:成功, 0:失敗)
 	Point2f vanishingPoint; // 現在フレームの消失点
 };

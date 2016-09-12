@@ -60,7 +60,7 @@ public class NativeAccesser {
 	
 	// nativeメソッド
 	public native void initNative();
-	public native void mainProcNative(long matAddrRgba, long nanoTime);
+	public native void mainProcNative(long matAddrRgba, long milliTime);
 	public native void changeStateNative(boolean isSaveFrameImg);
 	public native void setStopNative();
 	public native void setResetNative();

@@ -19,11 +19,11 @@ public:
 	void init();
 	void match(const Mat &query, const Mat &train, vector<DMatch> &vmatch) const;
 	void describe(const Mat &img, vector<KeyPoint> &vkpt, Mat &vdesc) const;
-	void detect(const Mat &img, vector<KeyPoint> &vkpt) const;
+	void detectAKAZE(const Mat &img, vector<KeyPoint> &vkpt) const;
+	void detectFAST(const Mat &img, vector<KeyPoint> &vkpt) const;
 
 private:
-	int type; // 0:ORB 1:FAST
-	Ptr<ORB> mORBDetector;
+	Ptr<AKAZE> mAKAZEDetector;
 	Ptr<FastFeatureDetector> mFASTDetector;
 	Ptr<DescriptorMatcher> mMatcher;
 };

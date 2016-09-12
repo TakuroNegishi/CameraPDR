@@ -35,8 +35,9 @@ include D:/Eclipse/4.4.x/OpenCV-android-sdk/sdk/native/jni/OpenCV.mk
 LOCAL_SRC_FILES := ATAMNative.cpp
 LOCAL_SRC_FILES += DirectionEstimator.cpp
 LOCAL_SRC_FILES += PointDetector.cpp
-LOCAL_SRC_FILES += VideoStabilizer.cpp
-#LOCAL_SRC_FILES += OpticalFlow.cpp
+LOCAL_SRC_FILES += KeyFrame.cpp
+LOCAL_SRC_FILES += MTQueue.cpp
+LOCAL_SRC_FILES += MovingAverageFilter.cpp
 #LOCAL_SRC_FILES += ATAMData.cpp
 #LOCAL_SRC_FILES += sba_levmar_wrap.c
 #LOCAL_SRC_FILES += sba_chkjac.c

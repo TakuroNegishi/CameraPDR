@@ -1,11 +1,9 @@
 #include <jni.h>
 #include <android/log.h>
-//#include <hosei_negishi_pdrtam_DetectorNative.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <vector>
-//#include "ATAM.h"
 #include "DirectionEstimator.h"
 
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, __FILE__, __VA_ARGS__))
@@ -14,11 +12,10 @@ using namespace std;
 using namespace cv;
 
 extern "C" {
-//CATAM atam;
 DirectionEstimator dirEstimator; // デフォルトコンストラクタ
 
 JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_initNative(JNIEnv *env, jobject thiz);
-JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_mainProcNative(JNIEnv *env, jobject thiz, jlong addrRgba, jlong nanoTime);
+JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_mainProcNative(JNIEnv *env, jobject thiz, jlong addrRgba, jlong milliTime);
 JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_changeStateNative(JNIEnv *env, jobject thiz, jboolean isSaveFrameImg);
 JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_setStopNative(JNIEnv *env, jobject thiz);
 JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_setResetNative(JNIEnv *env, jobject thiz);
@@ -28,21 +25,18 @@ JNIEXPORT jint JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_getPointLeng
 
 
 JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_initNative(JNIEnv *env, jobject thiz) {
-//	atam.init();
 //	dirEstimator.init();
 }
 
-JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_mainProcNative (JNIEnv *env, jobject thiz, jlong addrRgba, jlong nanoTime) {
+JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_mainProcNative (JNIEnv *env, jobject thiz, jlong addrRgba, jlong milliTime) {
 	Mat& rgba = *(Mat*)addrRgba;
-//	atam.onceProc(rgba);
-	dirEstimator.estimate(rgba, nanoTime);
+	dirEstimator.estimate(rgba, milliTime);
 
 	// TODO ここでATAM点群 >> GLRenderに移す
 
 }
 
 JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_changeStateNative(JNIEnv *env, jobject thiz, jboolean isSaveFrameImg) {
-//	atam.changeState();
 	dirEstimator.changeState(isSaveFrameImg);
 }
 

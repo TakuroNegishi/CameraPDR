@@ -30,11 +30,5 @@ public class SensorData implements Cloneable{
 	@Override
 	public String toString() {
 		return time + "," + vector.toString();
-		
-		// 歩容調査実験用("年-月-日" 形式)
-		/* nano sec => milli sec */
-//		Date d = new Date(time/1000/1000);
-//		SimpleDateFormat s = new SimpleDateFormat("yyyy-MM-dd HH;mm;ss;SSS", Locale.JAPAN);
-//		return s.format(d) + "," + vector.toString();
 	}
 }

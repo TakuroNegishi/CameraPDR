@@ -10,9 +10,7 @@
 
 PointDetector::PointDetector()
 {
-	mFASTDetector = FastFeatureDetector::create();
-	mORBDetector = ORB::create();
-	mMatcher = DescriptorMatcher::create("BruteForce-Hamming(2)");
+//	mFASTDetector = FastFeatureDetector::create();
 }
 
 PointDetector::~PointDetector()
@@ -21,11 +19,12 @@ PointDetector::~PointDetector()
 
 void PointDetector::init()
 {
-	type = 1;
+	// threshold=0.001(default)
+	mAKAZEDetector = AKAZE::create(5, 0, 3, 0.0005, 4, 4, 1);;
 	//	int threshold = 10,	bool nonmaxSuppression = true, int 	type = FastFeatureDetector::TYPE_9_16)
 	/* non-maxsuppression = 「最大でない値は(すべて)値を抑える(=値をゼロにする)」 */
 	mFASTDetector = FastFeatureDetector::create(40, true, FastFeatureDetector::TYPE_9_16);
-	mORBDetector = ORB::create(300, 1.2f, 8);
+	mMatcher = DescriptorMatcher::create("BruteForce-Hamming");
 }
 
 void PointDetector::match(const Mat &query, const Mat &train, vector<DMatch> &vmatch) const
@@ -35,14 +34,15 @@ void PointDetector::match(const Mat &query, const Mat &train, vector<DMatch> &vm
 
 void PointDetector::describe(const Mat &img, vector<KeyPoint> &vkpt, Mat &vdesc) const
 {
-	mORBDetector->compute(img, vkpt, vdesc);
+	mAKAZEDetector->compute(img, vkpt, vdesc);
 }
 
-void PointDetector::detect(const Mat &img, vector<KeyPoint> &vkpt) const
+void PointDetector::detectAKAZE(const Mat &img, vector<KeyPoint> &vkpt) const
 {
-	if (type == 1) {
-		mFASTDetector->detect(img, vkpt);
-	} else {
-		mORBDetector->detect(img, vkpt);
-	}
+	mAKAZEDetector->detect(img, vkpt);
+}
+
+void PointDetector::detectFAST(const Mat &img, vector<KeyPoint> &vkpt) const
+{
+	mFASTDetector->detect(img, vkpt);
 }

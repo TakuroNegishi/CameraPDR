@@ -97,7 +97,9 @@ public class SensorAdapter implements SensorEventListener {
 	public void onSensorChanged(SensorEvent event) {
 		Vector3D elem = new Vector3D(event.values[0], event.values[1], event.values[2]);
 		// 現在の時刻(ナノ秒)を記録
-		SensorData sensorData = new SensorData(event.timestamp, elem);
+//		SensorData sensorData = new SensorData(event.timestamp, elem);
+		// 現在の時刻(ミリ秒)を記録
+		SensorData sensorData = new SensorData(System.currentTimeMillis(), elem);
 		if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {	// 加速度センサ
 			accelerometerList.add(sensorData);
 		} else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {	// ジャイロセンサ
