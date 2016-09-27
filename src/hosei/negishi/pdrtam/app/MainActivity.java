@@ -1,7 +1,5 @@
 package hosei.negishi.pdrtam.app;
 
-import java.util.List;
-
 import hosei.negishi.pdrtam.R;
 
 import org.opencv.android.BaseLoaderCallback;
@@ -13,12 +11,9 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.hardware.Camera;
-import android.hardware.Camera.Parameters;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -49,10 +44,15 @@ public class MainActivity extends Activity implements OnClickListener,
 	};
 
 	private static Context appContext;
+	private static MainActivity appActivity;
 	
 	public static Context getContext() {
 		return appContext;
 	}
+	public static MainActivity getActivity() {
+		return appActivity;
+	}
+
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -65,6 +65,7 @@ public class MainActivity extends Activity implements OnClickListener,
 	
 		setContentView(R.layout.activity_main);
 		appContext = getApplicationContext();
+		appActivity = this;
 		initTAMMode();
 		initButtons();
 	}

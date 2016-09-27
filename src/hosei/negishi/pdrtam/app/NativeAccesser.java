@@ -1,6 +1,8 @@
 package hosei.negishi.pdrtam.app;
 
 import org.opencv.core.Mat;
+import android.util.Log;
+
 
 /**
  * Naitiveアクセス用クラス
@@ -28,8 +30,9 @@ public class NativeAccesser {
 		initNative();
 	}
 	
-	public void mainProc(Mat rgba, long nanoTime) {
-		mainProcNative(rgba.getNativeObjAddr(), nanoTime);
+	public void mainProc(Mat rgba, long milliTime) {
+//		Log.e("camera", milliTime + " msec");
+		mainProcNative(rgba.getNativeObjAddr(), milliTime);
 	}
 	
 	public void changeState(boolean isSaveFrameImg) {
@@ -44,10 +47,10 @@ public class NativeAccesser {
 		setResetNative();
 	}
 	
-	public float[] getPointAry() {
-		float[] pointAry = new float[getPointLength()];
-		getPointAryNative(pointAry.length, pointAry);
-		return pointAry;
+	public long[] getTimeAry() {
+		long[] timeAry = new long[2];
+		getTimeAryNative(timeAry);
+		return timeAry;
 	}
 	
 	public int getPointLength() {
@@ -64,6 +67,6 @@ public class NativeAccesser {
 	public native void changeStateNative(boolean isSaveFrameImg);
 	public native void setStopNative();
 	public native void setResetNative();
-	public native void getPointAryNative(int num, float[] pointAry);
+	public native void getTimeAryNative(long[] timeAry);
 	public native int getPointLengthNative();
 }

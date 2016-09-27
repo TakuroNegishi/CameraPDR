@@ -11,12 +11,14 @@ class KeyFrame
 public:
 	KeyFrame();
 	~KeyFrame();
-
+	KeyFrame(const KeyFrame &obj);
 	void init();
 	void clear();
 	void release();
-	void set(long time, cv::Mat a_img, cv::Mat a_grayImg);
-	long timeStamp;
+	void set(long long time, const cv::Mat &a_img, const cv::Mat &a_grayImg);
+	void set(const KeyFrame &obj);
+
+	long long timeStamp;
 	cv::Mat img;
 	cv::Mat grayImg;
 	std::vector<cv::KeyPoint> kpts;
@@ -26,7 +28,7 @@ private:
 	static const int IMG_HEIGHT;
 
 	std::vector<cv::DMatch> matchVector;
-	cv::Point vanishingPoint;
-	cv::Point vanishingFltPoint;
+	//cv::Point vanishingPoint;
+	//cv::Point vanishingFltPoint;
 };
 

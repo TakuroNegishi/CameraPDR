@@ -1,6 +1,5 @@
 package hosei.negishi.pdrtam.model;
 
-
 /**
  * 3次元ベクトルクラス
  */
@@ -21,6 +20,12 @@ public class Vector3D implements Cloneable {
 		this.x = x;
 		this.y = y;
 		this.z = z;
+	}
+	
+	public Vector3D(double x, double y, double z){
+		this.x = (float)x;
+		this.y = (float)y;
+		this.z = (float)z;
 	}
 	
 	/** ベクトルオブジェクトの構築 */
@@ -93,6 +98,26 @@ public class Vector3D implements Cloneable {
 		elem[1] = y;
 		elem[2] = z;
 		return elem;
+	}
+
+	/**
+	 * 回転
+	 * @param ax x軸周りの回転角
+	 * @param ay y軸周りの回転角
+	 * @param az z軸周りの回転角
+	 * @return ベクトル
+	 */
+	public Vector3D rotate(double ax, double ay, double az){
+		return Matrix4D.rotateMatrix(ax, ay, az).mult(this);
+	}
+	
+	/**
+	 * 回転
+	 * @param v 回転ベクトル
+	 * @return 回転後のベクトル
+	 */
+	public Vector3D rotate(Vector3D v){
+		return Matrix4D.rotateMatrix(v.x, v.y, v.z).mult(this);
 	}
 	
 	@Override

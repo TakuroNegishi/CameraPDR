@@ -3,9 +3,6 @@
 @brief		functions in KeyFrame
 */
 #include "KeyFrame.h"
-#include <jni.h>
-#include <android/log.h>
-#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, __FILE__, __VA_ARGS__))
 
 using namespace cv;
 using namespace std;
@@ -23,6 +20,12 @@ KeyFrame::~KeyFrame()
 	release();
 }
 
+// コピーコンストラクタ
+KeyFrame::KeyFrame(const KeyFrame &obj)
+{
+	this->set(obj.timeStamp, obj.img, obj.grayImg);
+}
+
 void KeyFrame::init()
 {
 	clear();
@@ -31,22 +34,30 @@ void KeyFrame::init()
 void KeyFrame::clear()
 {
 	timeStamp = -1;
-	img = Mat(Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC4);
-	grayImg = Mat(Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC1);
+	//img = Mat(Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC4);
+	//grayImg = Mat(Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC1);
 	kpts.clear();
 	matchVector.clear();
 }
 
 void KeyFrame::release()
 {
+	clear();
 	img.release();
 	grayImg.release();
 	desc.release();
+	vector<KeyPoint>().swap(kpts);
+	vector<DMatch>().swap(matchVector);
 }
 
-void KeyFrame::set(long time, cv::Mat a_img, cv::Mat a_grayImg)
+void KeyFrame::set(long long time, const cv::Mat &a_img, const cv::Mat &a_grayImg)
 {
 	timeStamp = time;
-	img = a_img;
-	grayImg = a_grayImg;
+	a_img.copyTo(img);
+	a_grayImg.copyTo(grayImg);
+}
+
+void KeyFrame::set(const KeyFrame &obj)
+{
+	set(obj.timeStamp, obj.img, obj.grayImg);
 }

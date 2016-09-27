@@ -68,7 +68,7 @@ public class FileManager {
 		PrintWriter writer = null;
 		boolean success = true;
 		File file = new File(Environment.getExternalStorageDirectory() + "/"
-				+ "negishi.deadreckoning/" + fileName);
+				+ "negishi.deadreckoning/Feature Image/" + fileName);
 		file.getParentFile().mkdir();
 		StringBuilder sb = new StringBuilder();
 		sb.append("x,y,z\n");
@@ -120,12 +120,37 @@ public class FileManager {
 		}
 	}
 	
+	/**
+	 * Vector3D+Long形式のリストを書き込む
+	 * @param fileName 書き込むファイル名
+	 * @param dataList Vector3DデータList
+	 * @param timeList longtimeList
+	 * @return 書き込み成功:true */
+	public static boolean writeListData(String fileName, List<Vector3D> dataList, List<Long> timeList) {
+		ArrayList<SensorData> vectorTimeList = new ArrayList<SensorData>(dataList.size());
+		StringBuilder sb = new StringBuilder();
+		sb.append("time,x,y,z\n");	// header
+		
+		for(int i = 0; i < dataList.size(); i++) {
+			sb.append(timeList.get(i) + "," + dataList.get(i).toString() + "\n");
+			vectorTimeList.add(new SensorData(timeList.get(i), dataList.get(i)));
+		}
+		if (FileManager.write(fileName + ".csv", sb.toString()) && FileManager.write(fileName + ".dat", FileManager.convertSDToBytes(vectorTimeList))) {
+			Log.e("", "Success Write => " + fileName);
+//			Toast.makeText(MainActivity.getContext(), "Success Write => " + fileName, Toast.LENGTH_SHORT).show();
+			return true;
+		} else {
+			Log.e("", "Failed Write => " + fileName);
+			return false;
+		}
+	}
+	
 	/** UTF-8 上書き書き込み
 	 * @return 書き込み成功ならtrue */
 	public static boolean write(String fileName, String text) {
 		PrintWriter writer = null;
 		boolean success = true;
-        File file = new File(Environment.getExternalStorageDirectory() + "/" + "negishi.deadreckoning/" + fileName);
+        File file = new File(Environment.getExternalStorageDirectory() + "/" + "negishi.deadreckoning/Feature Image/" + fileName);
         file.getParentFile().mkdir();
 		try {
 			FileOutputStream out = new FileOutputStream(file, false); // 上書き
@@ -152,7 +177,7 @@ public class FileManager {
 
 		try {
 			// 出力先ファイル
-			File file = new File(Environment.getExternalStorageDirectory() + "/" + "negishi.deadreckoning/" + fileName);
+			File file = new File(Environment.getExternalStorageDirectory() + "/" + "negishi.deadreckoning/Feature Image/" + fileName);
 			
 			fis = new BufferedOutputStream(new FileOutputStream(file));
 			for (byte[] bytes : bytess) {

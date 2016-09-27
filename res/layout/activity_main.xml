@@ -50,4 +50,12 @@
         android:layout_alignEnd="@+id/save_start_stop_btn"
         android:text="@string/write_log" />
 
+    <TextView
+        android:id="@+id/step_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/log_text"
+        android:layout_alignParentRight="true"
+        android:text="TextView" />
+
 </RelativeLayout>
