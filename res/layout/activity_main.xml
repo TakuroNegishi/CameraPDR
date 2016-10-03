@@ -55,7 +55,16 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_above="@+id/log_text"
-        android:layout_alignParentRight="true"
-        android:text="TextView" />
+        android:layout_alignParentEnd="true"
+        android:text="@string/step" />
+
+    <hosei.negishi.pdrtam.view.PathView
+        android:id="@+id/pathView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/step_text"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentTop="true"
+        android:layout_toEndOf="@+id/customizableCameraView1" />
 
 </RelativeLayout>

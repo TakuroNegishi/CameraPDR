@@ -23,7 +23,7 @@ public class MainActivity extends Activity implements OnClickListener,
 		DialogInterface.OnClickListener {
 	
 	private SLAMEngine slam;
-	private SensorAdapter sa;
+	public SensorAdapter sa;
 
 	// ライブラリ初期化完了後に呼ばれるコールバック (onManagerConnected)
 	// public abstract class BaseLoaderCallback implements

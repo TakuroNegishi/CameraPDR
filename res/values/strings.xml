@@ -13,5 +13,6 @@
     <string name="save_start">Save Start</string>
     <string name="save_stop">Save Stop</string>
     <string name="write_log">Write Log</string>
+    <string name="step">step</string>
     
 </resources>

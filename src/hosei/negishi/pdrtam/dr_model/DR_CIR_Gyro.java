@@ -1,7 +1,5 @@
 package hosei.negishi.pdrtam.dr_model;
 
-import hosei.negishi.pdrtam.R;
-import hosei.negishi.pdrtam.app.MainActivity;
 import hosei.negishi.pdrtam.model.SensorData;
 import hosei.negishi.pdrtam.model.SensorMap;
 import hosei.negishi.pdrtam.model.SensorName;
@@ -9,8 +7,6 @@ import hosei.negishi.pdrtam.model.Vector3D;
 import hosei.negishi.pdrtam.utils.Filter;
 
 import java.util.LinkedList;
-
-import android.widget.TextView;
 
 /**
  * 連続区間遡及型自律的経路修正手法(Continuous interval recourse)
@@ -54,7 +50,7 @@ public class DR_CIR_Gyro extends DeadReckoning {
 	}
 	
 	@Override
-	public boolean process(SensorMap sensorMap){
+	public boolean process(SensorMap sensorMap, long milliTime){
 		/** 正規化した重力ベクトル */
 		Vector3D gravity;
 		SensorData accl; // 加速度センサデータ
@@ -70,10 +66,10 @@ public class DR_CIR_Gyro extends DeadReckoning {
 		if(sensorMap.sensorData().containsKey(SensorName.GRVT)){
 			gravity = sensorMap.vector(SensorName.GRVT).normalize();
 		} else {
-			gravity = INIT_X;
+			gravity = INIT_Z;
 			sensorMap.put(SensorName.GRVT, new SensorData(0, gravity));
 		}
-		right = INIT_Z.exteriorProduct(gravity);
+		right = INIT_Y.exteriorProduct(gravity);
 		
 		/* ジャイロの回転 */
 		if(!sensorMap.sensorData().containsKey(SensorName.GYRO)) return false;
@@ -88,7 +84,7 @@ public class DR_CIR_Gyro extends DeadReckoning {
 		cum_gyro += rad;
 		
 		/* ジャイロの積分値として保存 */
-		sensorMap.put(SensorName.CUM_GYRO, new SensorData(gyroData.getTime(), new Vector3D(cum_gyro, 0, 0)));
+		sensorMap.put(SensorName.CUM_GYRO, new SensorData(gyroData.getTime(), new Vector3D(0, 0, cum_gyro)));
 		formerTime = gyroData.getTime();
 		
 		/* ドリフト誤差の計算 */
@@ -96,7 +92,7 @@ public class DR_CIR_Gyro extends DeadReckoning {
 		calcDrift(sensorMap, gravity);
 		
 		/* 地磁気の平均処理 */
-		meanMgnt.plus(sensorMap.vector(SensorName.MGNT).rotate(cum_gyro - drift, 0, 0)); // 基準を合わせる;
+		meanMgnt.plus(sensorMap.vector(SensorName.MGNT).rotate(0, 0, cum_gyro - drift)); // 基準を合わせる;
 
 //		Log.e("CUM_GYRO", "cum_gyro = " + cum_gyro);
 //		Log.e("DRIFT", "drift = " + drift);
@@ -108,7 +104,7 @@ public class DR_CIR_Gyro extends DeadReckoning {
 		/* 加速度初期化 */
 		if(lowAccl == null) {
 			lowAccl = accl.getVector(); // 初回実行時
-			stepMg.setInit(accl.getTime(), accl.getVector().x); // 初期値
+			stepMg.setInit(accl.getTime(), accl.getVector().innerProduct(gravity)); // 初期値
 		}
 		
 		/* 加速度フィルター */
@@ -128,25 +124,22 @@ public class DR_CIR_Gyro extends DeadReckoning {
 //		sensorMap.put(SensorName.PRESSURE, new SensorData(0, lowPrss));
 	    
 	    /* 鉛直成分による歩行判定 */
-		stepMg.determineWalking(lowAccl.x, accl.getTime());
+		stepMg.determineWalking(lowAccl.innerProduct(gravity), accl.getTime());
 		
     	if(stepMg.isPeak) {
     		stepCnt++;
-    		TextView stepView = (TextView) MainActivity.getActivity().findViewById(R.id.step_text);
-    		stepView.setText(stepCnt + " step");
-    		
     		/* 経路推定ポイントにデータを追加 */
     		SensorMap copy = new SensorMap();
     		copy.sensorData().putAll(sensorMap.sensorData());
 			queue.add(copy);
 			// 時刻保存
-			posTimes.add(System.currentTimeMillis());
+			posTimes.add(milliTime);
 			
 			/* 現在までの推定経路を一旦リフレッシュ */
 	    	positions.clear();
 	    	directions.clear();
 	    	cp = new Vector3D();
-//	    	positions.add(cp); // 初期位置
+	    	positions.add(cp);
 	    	for(SensorMap data : queue){
 	    		/* 方向推定 */
 	    		/* -data.vector(SensorName.CUM_GYRO).z) => Mi = R(-θi)M't
@@ -154,7 +147,7 @@ public class DR_CIR_Gyro extends DeadReckoning {
 	    		// 計算しておいたドリフト誤差を補正	    		
 	    		
 	    		// 暫定決定Ver
-	    		direction = INIT_Z.rotate(meanRad + (data.vector(SensorName.CUM_GYRO).x - drift), 0, 0).normalize();
+	    		direction = INIT_Y.rotate(0, 0, meanRad + (data.vector(SensorName.CUM_GYRO).z - drift)).normalize();
 	    		
 	    		// 見当違いVer
 //	    		direction = INIT_Y.rotate(0, 0, meanRad - data.vector(SensorName.CUM_GYRO).z - drift).normalize();
@@ -175,7 +168,7 @@ public class DR_CIR_Gyro extends DeadReckoning {
 	public void calcDrift(SensorMap sensorMap, Vector3D gravity) {
 		/* (∑(i*φ) - φ0) / ∑i^2 */
 		// ジャイロ回転後地磁気方位角
-    	float radian = calcRadianWithGravity(right, calcEast(sensorMap.vector(SensorName.MGNT).rotate(cum_gyro, 0, 0), gravity), gravity);
+    	float radian = calcRadianWithGravity(right, calcEast(sensorMap.vector(SensorName.MGNT).rotate(0, 0, cum_gyro), gravity), gravity);
 //    	double deg = Math.toDegrees(radian);
     	if(firstY == 0.0) {
     		firstY = radian;

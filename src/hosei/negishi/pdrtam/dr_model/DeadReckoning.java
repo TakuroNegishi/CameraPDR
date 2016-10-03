@@ -1,7 +1,5 @@
 package hosei.negishi.pdrtam.dr_model;
 
-import hosei.negishi.pdrtam.R;
-import hosei.negishi.pdrtam.app.MainActivity;
 import hosei.negishi.pdrtam.app.StepManager;
 import hosei.negishi.pdrtam.model.Matrix4D;
 import hosei.negishi.pdrtam.model.SensorData;
@@ -11,9 +9,6 @@ import hosei.negishi.pdrtam.model.Vector3D;
 import hosei.negishi.pdrtam.utils.Filter;
 
 import java.util.ArrayList;
-
-import android.util.Log;
-import android.widget.TextView;
 
 public class DeadReckoning {
 	public static final Vector3D INIT_X = new Vector3D(1, 0, 0);
@@ -81,7 +76,7 @@ public class DeadReckoning {
 //	}
 	
 	/** DRメインプロセス */
-	public boolean process(SensorMap sensorMap) {
+	public boolean process(SensorMap sensorMap, long milliTime) {
 		/** 正規化した重力ベクトル */
 		Vector3D gravity;
 		SensorData accl; // 加速度センサデータ
@@ -95,9 +90,9 @@ public class DeadReckoning {
 		if(sensorMap.sensorData().containsKey(SensorName.GRVT)){
 			gravity = sensorMap.vector(SensorName.GRVT).normalize();
 		} else {
-			gravity = INIT_X; // ジャイロセンサが効いて無い時,端末左(X軸)向きのベクトルを重力加速度ベクトルに
+			gravity = INIT_Z; // ジャイロセンサが効いて無い時,端末画面(Z軸)向きのベクトルを重力加速度ベクトルに
 		}
-		right = INIT_Z.exteriorProduct(gravity);
+		right = INIT_Y.exteriorProduct(gravity);
 				
 		// 回転量の計算
 		if(sensorMap.sensorData().containsKey(SensorName.GYRO)){
@@ -106,34 +101,32 @@ public class DeadReckoning {
 			formerTime = sensorMap.time(SensorName.GYRO);
 		}
 		/* 回転量rotは積み重ね(合計)値になる? */
-		sensorMap.put(SensorName.CUM_GYRO, new SensorData(formerTime, new Vector3D(rot, 0, 0))); // ジャイロの積分値として保存
+		sensorMap.put(SensorName.CUM_GYRO, new SensorData(formerTime, new Vector3D(0, 0, rot))); // ジャイロの積分値として保存
 		
 		/* 初期化 */
 		if(lowAccl == null) {
 			lowAccl = accl.getVector(); // 初回実行時
-			stepMg.setInit(accl.getTime(), accl.getVector().x); // 初期値
+			stepMg.setInit(accl.getTime(), accl.getVector().innerProduct(gravity)); // 初期値
 		}
 		
 		/* 加速度フィルター */
 		lowAccl = Filter.lowPass(lowAccl, accl.getVector());
+		
 		// 進行方向の推定
     	direction = calcDirection(gravity, right, sensorMap);
     	
     	// 歩行判定
-		stepMg.determineWalking(lowAccl.x, accl.getTime());
-//		stepMg.determineWalking(lowAccl.innerProduct(gravity), accl.getTime());
+		stepMg.determineWalking(lowAccl.innerProduct(gravity), accl.getTime());
 //    	peakAg.calcPeak(lowAccl.innerProduct(gravity), accl.getTime()); // 加速度重力成分の極値検出
 		
     	if(stepMg.isPeak){
     		// 現在位置更新
     		stepCnt++;
-    		TextView stepView = (TextView) MainActivity.getActivity().findViewById(R.id.step_text);
-    		stepView.setText(stepCnt + " step");
     		cp.plus(direction.multCreate(1.66f * 0.46f));
     		// TODO Z軸(高さ)方向の位置推定も考える必要アリ
 			cp = new Vector3D(cp.x, cp.y, 0);
 			positions.add(cp);
-			posTimes.add(System.currentTimeMillis());
+			posTimes.add(milliTime);
 	    	directions.add(direction.clone());
 			return true;
     	}
@@ -154,8 +147,8 @@ public class DeadReckoning {
 	 */
 	public double calcRotation(Vector3D ang_v, Vector3D gravity, double cum, long cur_time, long pre_time) {
 		// 単位時間(sec)辺りの積分
-		// (cur_time - pre_time) >> 積分範囲		1e6f はmilliからsecへの変換
-		double rad = calcRadianWithRodrigues(ang_v.multCreate((cur_time - pre_time) / 1e6f), gravity.normalize());
+		// (cur_time - pre_time) >> 積分範囲		1e3f はmilliからsecへの変換
+		double rad = calcRadianWithRodrigues(ang_v.multCreate((cur_time - pre_time)/1e3f), gravity.normalize());
 		
 //    	Log.e("進行方向角度G", "" + (int)(Math.toDegrees(cum + rad)) + " °");
     	
@@ -198,16 +191,16 @@ public class DeadReckoning {
 	/** 進行方向の推定 */
 	public Vector3D calcDirection(Vector3D gravity, Vector3D right, SensorMap sensorMap) {
 		/******** 地磁気単独 ********/
-		if(!sensorMap.sensorData().containsKey(SensorName.MGNT)) return INIT_Z;
+		if(!sensorMap.sensorData().containsKey(SensorName.MGNT)) return INIT_Y;
     	/* 地磁気の進行方向ベクトルの計算  */
 		Vector3D east = calcEast(sensorMap.vector(SensorName.MGNT), gravity);
 		// rad = Z軸に対する回転角度
-    	float rad = calcRadianWithGravity(right, east, gravity);
+    	double rad = calcRadianWithGravity(right, east, gravity);
     	
 //    	Log.e("進行方向角度", "" + Math.toDegrees(rad) + " °");
     	
-    	return INIT_Z.rotate(rad, 0.f, 0.f).normalize(); // TODO 後で偏角を追加
-//    	return INIT_Z; // TODO 後で偏角を追加
+    	return INIT_Y.rotate(0, 0, rad).normalize(); // TODO 後で偏角を追加
+//    	return INIT_Y; // TODO 後で偏角を追加
 	}
 	
 	/**

@@ -30,10 +30,11 @@ import android.widget.Toast;
 public class SensorAdapter implements SensorEventListener {
 	
 //	MainActivity mainActivity;
-	public MainActivity mainActivity;
+//	public MainActivity mainActivity;
 	private SensorManager manager;
 	public DeadReckoning dr;
 	public SensorMap sensorMap;
+	ChartViewManager cm;
 	
 	// センサーデータ格納用
 	private ArrayList<SensorData> accelerometerList;	// 加速度
@@ -46,8 +47,9 @@ public class SensorAdapter implements SensorEventListener {
 	}
 	
 	public void init() {
-		dr = new DeadReckoning();
-//		dr = new DR_CIR_Gyro();
+//		dr = new DeadReckoning();
+		dr = new DR_CIR_Gyro();
+		cm = new ChartViewManager();
 		
 		sensorMap = new SensorMap();
 		accelerometerList = new ArrayList<SensorData>();
@@ -111,7 +113,7 @@ public class SensorAdapter implements SensorEventListener {
 		if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {	// 加速度センサ
 			sensorMap.put(SensorName.ACCL, sensorData);
 			accelerometerList.add(sensorData);
-			procPosEstimation();
+			procPosEstimation(sensorData.getTime());
 		} else if (event.sensor.getType() == Sensor.TYPE_GRAVITY) {	// 重力加速度センサ
 			sensorMap.put(SensorName.GRVT, sensorData);
 		} else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {	// ジャイロセンサ
@@ -124,7 +126,7 @@ public class SensorAdapter implements SensorEventListener {
 	}
 	
 	/** 位置推定メインプロセス */
-	public void procPosEstimation() {
+	public void procPosEstimation(long milliTime) {
 //		main.viewManager.setTime("" + (formerTime - startTime)/1000000000 + "秒");
 		/* ディープコピー */
 //		System.nanoTime();
@@ -132,8 +134,13 @@ public class SensorAdapter implements SensorEventListener {
 		SensorMap copy = new SensorMap();
 		copy.sensorData().putAll(sensorMap.sensorData());
 		/* デッドレコニング処理 */
-		if(dr.process(sensorMap)){
-//			mainActivity.cm.updateWindow();			
+		if(dr.process(sensorMap, milliTime)){
+			// 横向き歩きの区間取得
+//			long[] startEndTime = NativeAccesser.getInstance().getTimeAry();
+//			if (startEndTime[0] != 0 && startEndTime[1] != 0) {
+//				
+//			}
+			cm.updateWindow(dr);
 		} else {
 //			main.viewManager.cpView.invalidate();
 		}

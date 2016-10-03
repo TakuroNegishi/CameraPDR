@@ -7,7 +7,6 @@ import java.util.List;
 import org.opencv.android.JavaCameraView;
 
 import android.content.Context;
-import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
 import android.util.AttributeSet;
 import android.util.Log;

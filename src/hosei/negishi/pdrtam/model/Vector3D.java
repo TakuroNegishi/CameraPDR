@@ -34,6 +34,18 @@ public class Vector3D implements Cloneable {
 		this.y = v.y;
 		this.z = v.z;
 	}
+
+	public void set(Vector3D v){
+		this.x = v.x;
+		this.y = v.y;
+		this.z = v.z;
+	}
+	
+	public void set(float x, float y, float z){
+		this.x = x;
+		this.y = y;
+		this.z = z;
+	}
 	
 	/** 正規化ベクトルを取得する */
 	public Vector3D normalize(){
