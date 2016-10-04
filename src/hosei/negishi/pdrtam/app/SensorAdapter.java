@@ -129,20 +129,11 @@ public class SensorAdapter implements SensorEventListener {
 	public void procPosEstimation(long milliTime) {
 //		main.viewManager.setTime("" + (formerTime - startTime)/1000000000 + "秒");
 		/* ディープコピー */
-//		System.nanoTime();
-//		System.currentTimeMillis();
 		SensorMap copy = new SensorMap();
 		copy.sensorData().putAll(sensorMap.sensorData());
 		/* デッドレコニング処理 */
 		if(dr.process(sensorMap, milliTime)){
-			// 横向き歩きの区間取得
-//			long[] startEndTime = NativeAccesser.getInstance().getTimeAry();
-//			if (startEndTime[0] != 0 && startEndTime[1] != 0) {
-//				
-//			}
 			cm.updateWindow(dr);
-		} else {
-//			main.viewManager.cpView.invalidate();
 		}
 	}
 	
@@ -154,7 +145,12 @@ public class SensorAdapter implements SensorEventListener {
 		success &= FileManager.writeListData(header + "_acce", accelerometerList);
 		success &= FileManager.writeListData(header + "_gyro", gyroscopeList);
 		success &= FileManager.writeListData(header + "_magnet", magneticFieldList);
-		success &= FileManager.writeListData(header + "_0positions", dr.positions, dr.posTimes);
+//		Log.e("", "dr.positions:" + dr.positions.size() + ", dr.posTimes:" + dr.posTimes.size());
+		if (dr.posTimes.size() == dr.positions.size())
+			success &= FileManager.writeListData(header + "_0positions", dr.positions, dr.posTimes);
+		else
+			Toast.makeText(MainActivity.getContext(), "dr pos error!", Toast.LENGTH_SHORT).show();
+			
 		if (success)
 			Toast.makeText(MainActivity.getContext(), "Success Write All Log", Toast.LENGTH_SHORT).show();
 		else

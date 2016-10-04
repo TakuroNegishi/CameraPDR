@@ -1,12 +1,17 @@
 package hosei.negishi.pdrtam.dr_model;
 
+import hosei.negishi.pdrtam.R;
+import hosei.negishi.pdrtam.app.MainActivity;
+import hosei.negishi.pdrtam.app.NativeAccesser;
 import hosei.negishi.pdrtam.model.SensorData;
 import hosei.negishi.pdrtam.model.SensorMap;
 import hosei.negishi.pdrtam.model.SensorName;
 import hosei.negishi.pdrtam.model.Vector3D;
 import hosei.negishi.pdrtam.utils.Filter;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
+
+import android.widget.TextView;
 
 /**
  * 連続区間遡及型自律的経路修正手法(Continuous interval recourse)
@@ -19,7 +24,7 @@ public class DR_CIR_Gyro extends DeadReckoning {
 	/** 大局的な地磁気 */
 	Vector3D meanMgnt;
 	/** 更新待ち位置のデータ */
-	public LinkedList<SensorMap> queue;
+	public ArrayList<SensorMap> queue;
 
 	/** ジャイロ積分値 */
 	double cum_gyro;
@@ -35,10 +40,16 @@ public class DR_CIR_Gyro extends DeadReckoning {
 	double xSumPow;
 	/** 無回転時進行方向と地磁気との角度 */
 	double meanRad;
-
+	/** 横向き回転 */
+	ArrayList<Long> startTimeArray;
+	ArrayList<Long> endTimeArray;
 	
 	public DR_CIR_Gyro() {
 		super();
+		queue = new ArrayList<SensorMap>();
+		startTimeArray = new ArrayList<Long>();
+		endTimeArray = new ArrayList<Long>();
+		
 		init();
 //		this.window = window;
 //		drName = "組み合わせ平均法" + window*20 +"ミリ秒窓(半自由)";
@@ -126,41 +137,73 @@ public class DR_CIR_Gyro extends DeadReckoning {
 	    /* 鉛直成分による歩行判定 */
 		stepMg.determineWalking(lowAccl.innerProduct(gravity), accl.getTime());
 		
-    	if(stepMg.isPeak) {
-    		stepCnt++;
-    		/* 経路推定ポイントにデータを追加 */
-    		SensorMap copy = new SensorMap();
-    		copy.sensorData().putAll(sensorMap.sensorData());
+		if(stepMg.isPeak) {
+			stepCnt++;
+			/* 経路推定ポイントにデータを追加 */
+			SensorMap copy = new SensorMap();
+			copy.sensorData().putAll(sensorMap.sensorData());
 			queue.add(copy);
 			// 時刻保存
 			posTimes.add(milliTime);
-			
 			/* 現在までの推定経路を一旦リフレッシュ */
-	    	positions.clear();
-	    	directions.clear();
-	    	cp = new Vector3D();
-	    	positions.add(cp);
-	    	for(SensorMap data : queue){
-	    		/* 方向推定 */
-	    		/* -data.vector(SensorName.CUM_GYRO).z) => Mi = R(-θi)M't
-	    		 * i歩後の地磁気ベクトルに直す */
-	    		// 計算しておいたドリフト誤差を補正	    		
+			positions.clear();
+			directions.clear();
+			cp = new Vector3D();
+//			positions.add(cp); // 初期位置追加
+			// 横向き歩きの区間取得
+			long[] startEndTime = NativeAccesser.getInstance().getTimeAry();
+			long a = 11;
+			long b = 22;
+			if (startEndTime[0] != 0 && startEndTime[1] != 0) {
+				startTimeArray.add(startEndTime[0]);
+				endTimeArray.add(startEndTime[1]);
+			}
+			a = startEndTime[0];
+			b = startEndTime[1];
+			TextView logText = (TextView)(MainActivity.getActivity().findViewById(R.id.log_text));
+			logText.setText("s=" + a + ", e=" + b);				
+			boolean isSidewayCheck = (startTimeArray.size() > 0);
+			
+			// 過去の移動軌跡を大局的な地磁気とドリフト誤差から修正
+			for (int i = 0; i < queue.size(); i++) {
+				SensorMap data = queue.get(i);
+				/* 方向推定 */
+				/* -data.vector(SensorName.CUM_GYRO).z) => Mi = R(-θi)M't
+				 * i歩後の地磁気ベクトルに直す */
+				// 計算しておいたドリフト誤差を補正	    		
 	    		
-	    		// 暫定決定Ver
-	    		direction = INIT_Y.rotate(0, 0, meanRad + (data.vector(SensorName.CUM_GYRO).z - drift)).normalize();
-	    		
-	    		// 見当違いVer
+				// 横向き区間は進行方向の回転無し
+				if (!isSidewayCheck || !isSidewaySection(posTimes.get(i))) {
+					/* 暫定決定Ver */
+					// i番目の進行方向を計算
+					// meadRad最新の大局的な地磁気,i番目の累積回転量 - drift => driftはドリフト誤差を示す傾き
+					direction = INIT_Y.rotate(0, 0, meanRad + (data.vector(SensorName.CUM_GYRO).z - drift)).normalize();
+				}
+
+				// 見当違いVer
 //	    		direction = INIT_Y.rotate(0, 0, meanRad - data.vector(SensorName.CUM_GYRO).z - drift).normalize();
-	    		directions.add(direction.clone());
-	    		/* 気圧による高度推定 */
+				directions.add(direction.clone());
+				/* 気圧による高度推定 */
 //    			cp = new Vector3D(cp.x, cp.y, 0 - (287*290/9.81 * Math.log(data.vector(SensorName.PRESSURE).x / basePrss.x)));
-	    		cp = new Vector3D(cp.x, cp.y, 0);
-	    		/* 経路決定 */
-        		cp.plus(direction.multCreate(1.66f * 0.46f));
-    	    	positions.add(cp);
-	    	}
-	    	return true;
-    	}
+				cp = new Vector3D(cp.x, cp.y, 0);
+				/* 経路決定 */
+				cp.plus(direction.multCreate(1.66f * 0.46f));
+				positions.add(cp);
+			}
+			return true;
+		}
+		return false;
+	}
+	
+	/** 横向き区間検出
+	 * @param time 対象時刻 */
+	public boolean isSidewaySection(long time) {
+		for (int i = 0; i < startTimeArray.size(); i++) {
+//			if (endTimeArray.get(i) < time) continue;
+//			else if (time < startTimeArray.get(i)) return false;
+			if (startTimeArray.get(i) < time && time < endTimeArray.get(i))
+				return true;
+		}
 		return false;
 	}
 	
@@ -178,7 +221,7 @@ public class DR_CIR_Gyro extends DeadReckoning {
         	count++;
     		return;
     	}
-    	// 最小二乗による傾きαを求める(=drift)
+    	// 最小二乗による傾きα(=drift)を求める
     	xySum += count * radian;
     	xSumPow += Math.pow(count, 2);
      	drift = (xySum - firstY) / xSumPow;
@@ -194,7 +237,6 @@ public class DR_CIR_Gyro extends DeadReckoning {
 //		super.init(threshTime, threshValue);
 //		buff = new LinkedList<SensorMap>();
 		
-		queue = new LinkedList<SensorMap>();
 		cum_gyro = 0;
 		drift = 0;
 		count = 0;
@@ -208,6 +250,8 @@ public class DR_CIR_Gyro extends DeadReckoning {
 		first = true;
 //		basePrss = null;
 //		lowPrss = null;
-		queue.clear();
+		if (queue != null) queue.clear();
+		if (startTimeArray != null) startTimeArray.clear();
+		if (endTimeArray != null) endTimeArray.clear();
 	}
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fstream>
+#include <mutex>
 #include <opencv2/core.hpp>
 #include "opencv2/features2d.hpp"
 #include "KeyFrame.h"
@@ -47,6 +48,7 @@ private:
 	std::vector<cv::Point2f> pointHistoryMA;
 	MovingAverageFilter* maFilterX;
 	MovingAverageFilter* maFilterY;
+	std::mutex sidewayMutex;
 	int sidewayStatus;
 	long long startTime;
 	int startVPStatus;

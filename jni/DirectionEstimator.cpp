@@ -91,6 +91,9 @@ void DirectionEstimator::estimate(Mat &rgbaImg, long long milliTime)
 	//chrono::system_clock::time_poeint  start, end;
 	//start = chrono::system_clock::now();
 
+	/* debug */
+//	saveImg(rgbaImg, milliTime); // debug
+
 	if (tracker->tracking(rgbaImg, milliTime)) {
 		KeyFrame lastKF;
 		lastKF.set(tracker->getLastKF());
@@ -130,9 +133,7 @@ void DirectionEstimator::procCalcVP()
 
 void DirectionEstimator::getStartEndTime(long long startEndTime[])
 {
-	vpCalcMutex.lock();
 	vpEstimator->getStartEndTime(startEndTime);
-	vpCalcMutex.unlock();
 }
 
 void DirectionEstimator::saveDebug(Mat &img, const vector<KeyPoint> &prev, const vector<KeyPoint> &cur, long long milliTime)
@@ -196,11 +197,11 @@ void DirectionEstimator::saveImg(const Mat &rgbaImg, long long milliTime)
 		//	now_time.tm_year + 1900, now_time.tm_mon + 1, now_time.tm_mday, now_time.tm_hour,
 		//	now_time.tm_min, now_time.tm_sec, milliTime);
 		sprintf(buff, "/storage/emulated/legacy/negishi.deadreckoning/Feature Image/%lld.jpg", milliTime);
-		//Mat copy;
+		Mat copy;
 		//rgbaImg.copyTo(copy);
-		//cvtColor(rgbaImg, copy, COLOR_BGR2RGB); // なぜか色が変わるから対処
+		cvtColor(rgbaImg, copy, COLOR_BGR2RGB); // なぜか色が変わるから対処
 		//imshow("color", rgbaImg);
-		imwrite(buff, rgbaImg);
+		imwrite(buff, copy);
 	//}
 //	loopMutex.unlock();
 }

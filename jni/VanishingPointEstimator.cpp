@@ -49,9 +49,14 @@ void VanishingPointEstimator::clear()
 	pointHistory.clear();
 	pointHistoryMA.clear();
 	sidewayStatus = 0;
+
+	// PDR側との処理
+	sidewayMutex.lock();
 	startTime = 0;
-	startVPStatus = NORMAL_VP;
 	endTime = 0;
+	sidewayMutex.unlock();
+
+	startVPStatus = NORMAL_VP;
 	maFilterX->clear();
 	maFilterY->clear();
 }
@@ -113,6 +118,7 @@ void VanishingPointEstimator::calcVP(KeyFrame &currentKF)
 		ofs << ",LEFT" << endl;
 
 	// 横向き歩き判定
+	sidewayMutex.lock();
 	if (sidewayStatus == 0 && startTime == 0 && endTime == 0) { // start,end==0 -> PDR側からの取得待ち
 		if (vpStatus == LEFT_VP || vpStatus == RIGHT_VP) {
 			// 左右どちらかに
@@ -146,6 +152,7 @@ void VanishingPointEstimator::calcVP(KeyFrame &currentKF)
 			cout << "sidewayStatus: 2 -> 0" << endl;
 		}
 	}
+	sidewayMutex.unlock();
 
 	/*** draw debug ***/
 //	saveDebug(currentKF.img, inlierMatches, prevKpts, currentKF.kpts, currentKF.timeStamp, vpMA);
@@ -247,6 +254,7 @@ float VanishingPointEstimator::getDistance(const Point2f &pt1, const Point2f &pt
 
 void VanishingPointEstimator::getStartEndTime(long long startEndTime[])
 {
+	sidewayMutex.lock();
 	if (endTime == 0) {
 		// 横向き期間未観測
 		startEndTime[0] = 0;
@@ -258,6 +266,7 @@ void VanishingPointEstimator::getStartEndTime(long long startEndTime[])
 		startTime = 0;
 		endTime = 0;
 	}
+	sidewayMutex.unlock();
 }
 
 void VanishingPointEstimator::saveDebug(Mat &img, const vector<DMatch> &matches, const vector<KeyPoint> &prev, const vector<KeyPoint> &cur, long long milliTime, Point2f vp)
