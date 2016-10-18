@@ -52,10 +52,14 @@ JNIEXPORT void JNICALL Java_hosei_negishi_pdrtam_app_NativeAccesser_getTimeAryNa
 
 	jlong *ret = env->GetLongArrayElements(retObj, NULL);
 
-	long long startEndTime[2];
+	long long startEndTime[6];
 	dirEstimator.getStartEndTime(startEndTime);
 	ret[0] = startEndTime[0];
 	ret[1] = startEndTime[1];
+	ret[2] = startEndTime[2];
+	ret[3] = startEndTime[3];
+	ret[4] = startEndTime[4];
+	ret[5] = startEndTime[5];
 
 //	for (int i = 0; i < count*3; i++) {
 //		ret[i] = pointAry[i];

@@ -3,6 +3,10 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include <jni.h>
+#include <android/log.h>
+#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, __FILE__, __VA_ARGS__))
+
 #include <iostream>
 #include <time.h>
 //#include <sys/time.h>
@@ -92,16 +96,16 @@ void DirectionEstimator::estimate(Mat &rgbaImg, long long milliTime)
 	//start = chrono::system_clock::now();
 
 	/* debug */
-//	saveImg(rgbaImg, milliTime); // debug
+	saveImg(rgbaImg, milliTime); // debug
 
-	if (tracker->tracking(rgbaImg, milliTime)) {
-		KeyFrame lastKF;
-		lastKF.set(tracker->getLastKF());
-		queueMutex.lock();
-		keyFrameQueue.push(lastKF);
-		cout << "pushed" << endl;
-		queueMutex.unlock();
-	}
+//	if (tracker->tracking(rgbaImg, milliTime)) {
+//		KeyFrame lastKF;
+//		lastKF.set(tracker->getLastKF());
+//		queueMutex.lock();
+//		keyFrameQueue.push(lastKF);
+//		cout << "pushed" << endl;
+//		queueMutex.unlock();
+//	}
 }
 
 void DirectionEstimator::procCalcVP()
@@ -196,7 +200,7 @@ void DirectionEstimator::saveImg(const Mat &rgbaImg, long long milliTime)
 		//sprintf_s(buff, "C:/Users/admin/Documents/Visual Studio 2013/Projects/VirtualCameraPDR/VirtualCameraPDR/result/%04d-%02d-%02d_%02d;%02d;%02d;%lld.jpg",
 		//	now_time.tm_year + 1900, now_time.tm_mon + 1, now_time.tm_mday, now_time.tm_hour,
 		//	now_time.tm_min, now_time.tm_sec, milliTime);
-		sprintf(buff, "/storage/emulated/legacy/negishi.deadreckoning/Feature Image/%lld.jpg", milliTime);
+		sprintf(buff, "/storage/emulated/0/negishi.deadreckoning/Feature Image/%lld.jpg", milliTime);
 		Mat copy;
 		//rgbaImg.copyTo(copy);
 		cvtColor(rgbaImg, copy, COLOR_BGR2RGB); // なぜか色が変わるから対処

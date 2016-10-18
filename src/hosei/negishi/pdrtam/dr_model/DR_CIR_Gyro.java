@@ -43,13 +43,19 @@ public class DR_CIR_Gyro extends DeadReckoning {
 	/** 横向き回転 */
 	ArrayList<Long> startTimeArray;
 	ArrayList<Long> endTimeArray;
+	TextView logText;
+	long prevMilliTime;
+	
+	Vector3D subDirection;
 	
 	public DR_CIR_Gyro() {
 		super();
 		queue = new ArrayList<SensorMap>();
 		startTimeArray = new ArrayList<Long>();
 		endTimeArray = new ArrayList<Long>();
-		
+		logText = (TextView)(MainActivity.getActivity().findViewById(R.id.log_text));
+		subDirection = new Vector3D();
+
 		init();
 //		this.window = window;
 //		drName = "組み合わせ平均法" + window*20 +"ミリ秒窓(半自由)";
@@ -91,7 +97,9 @@ public class DR_CIR_Gyro extends DeadReckoning {
 			first = false;
 		}
 		
-		double rad = calcRadianWithRodrigues(gyroData.getVector().multCreate((gyroData.getTime() - formerTime)/1e9f), gravity.normalize());
+		// 1e3f はmilliからsecへの変換
+		double rad = calcRadianWithRodrigues(gyroData.getVector().multCreate((gyroData.getTime() - formerTime)/1e3f), gravity.normalize());
+//		double rad = calcRadianWithRodrigues(gyroData.getVector().multCreate((gyroData.getTime() - formerTime)/1e9f), gravity.normalize());
 		cum_gyro += rad;
 		
 		/* ジャイロの積分値として保存 */
@@ -147,23 +155,27 @@ public class DR_CIR_Gyro extends DeadReckoning {
 			posTimes.add(milliTime);
 			/* 現在までの推定経路を一旦リフレッシュ */
 			positions.clear();
+			subPositions.clear();
 			directions.clear();
+			subDirections.clear();
 			cp = new Vector3D();
 //			positions.add(cp); // 初期位置追加
-			// 横向き歩きの区間取得
-			long[] startEndTime = NativeAccesser.getInstance().getTimeAry();
-			long a = 11;
-			long b = 22;
-			if (startEndTime[0] != 0 && startEndTime[1] != 0) {
-				startTimeArray.add(startEndTime[0]);
-				endTimeArray.add(startEndTime[1]);
-			}
-			a = startEndTime[0];
-			b = startEndTime[1];
-			TextView logText = (TextView)(MainActivity.getActivity().findViewById(R.id.log_text));
-			logText.setText("s=" + a + ", e=" + b);				
-			boolean isSidewayCheck = (startTimeArray.size() > 0);
 			
+			// 横向き歩きの区間取得 
+			if (prevMilliTime == 0) {
+				prevMilliTime = milliTime;
+			} else if ((milliTime - prevMilliTime) >= 2000) {
+				// 2sec間隔でチェック
+				long[] startEndTime = NativeAccesser.getInstance().getTimeAry();
+//				LEFT_VP = -1, RIGHT_VP = 1
+				if (startEndTime[0] != 0 && startEndTime[1] != 0) {
+					startTimeArray.add(startEndTime[0]);
+					endTimeArray.add(startEndTime[1]);
+				}
+				logText.setText("s=" + startEndTime[0] + ", e=" + startEndTime[1] 
+						+ ", count=" + startEndTime[2] + ",sideSt=" + startEndTime[3]);
+				prevMilliTime = milliTime;
+			}
 			// 過去の移動軌跡を大局的な地磁気とドリフト誤差から修正
 			for (int i = 0; i < queue.size(); i++) {
 				SensorMap data = queue.get(i);
@@ -173,20 +185,23 @@ public class DR_CIR_Gyro extends DeadReckoning {
 				// 計算しておいたドリフト誤差を補正	    		
 	    		
 				// 横向き区間は進行方向の回転無し
-				if (!isSidewayCheck || !isSidewaySection(posTimes.get(i))) {
+				if (!isSidewaySection(posTimes.get(i))) {
 					/* 暫定決定Ver */
 					// i番目の進行方向を計算
 					// meadRad最新の大局的な地磁気,i番目の累積回転量 - drift => driftはドリフト誤差を示す傾き
 					direction = INIT_Y.rotate(0, 0, meanRad + (data.vector(SensorName.CUM_GYRO).z - drift)).normalize();
 				}
+				subDirection = INIT_Y.rotate(0, 0, meanRad + (data.vector(SensorName.CUM_GYRO).z - drift)).normalize();
 
 				// 見当違いVer
 //	    		direction = INIT_Y.rotate(0, 0, meanRad - data.vector(SensorName.CUM_GYRO).z - drift).normalize();
 				directions.add(direction.clone());
+				subDirections.add(subDirection.clone());
 				/* 気圧による高度推定 */
 //    			cp = new Vector3D(cp.x, cp.y, 0 - (287*290/9.81 * Math.log(data.vector(SensorName.PRESSURE).x / basePrss.x)));
 				cp = new Vector3D(cp.x, cp.y, 0);
 				/* 経路決定 */
+				subPositions.add(cp.plusCreate(subDirection.multCreate(1.66f * 0.46f)));
 				cp.plus(direction.multCreate(1.66f * 0.46f));
 				positions.add(cp);
 			}
@@ -198,6 +213,8 @@ public class DR_CIR_Gyro extends DeadReckoning {
 	/** 横向き区間検出
 	 * @param time 対象時刻 */
 	public boolean isSidewaySection(long time) {
+		if (startTimeArray.size() < 1) return false;
+		
 		for (int i = 0; i < startTimeArray.size(); i++) {
 //			if (endTimeArray.get(i) < time) continue;
 //			else if (time < startTimeArray.get(i)) return false;
@@ -253,5 +270,6 @@ public class DR_CIR_Gyro extends DeadReckoning {
 		if (queue != null) queue.clear();
 		if (startTimeArray != null) startTimeArray.clear();
 		if (endTimeArray != null) endTimeArray.clear();
+		prevMilliTime = 0;
 	}
 }

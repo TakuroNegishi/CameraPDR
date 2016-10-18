@@ -54,5 +54,8 @@ private:
 	int startVPStatus;
 	long long endTime;
 	std::ofstream ofs;
+	int procCount;
+	long long sideStartTime;
+	long long sideEndTime;
 };
 

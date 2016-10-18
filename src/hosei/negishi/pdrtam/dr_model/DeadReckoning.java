@@ -33,12 +33,14 @@ public class DeadReckoning {
 	double distance;
 	/** 移動経路 */
 	public ArrayList<Vector3D> positions;
+	public ArrayList<Vector3D> subPositions;
 	/** 移動時刻 */
 	public ArrayList<Long> posTimes;
 	/** 現在位置 */
 	Vector3D cp;
 	/** 進行方向ログ */
 	public ArrayList<Vector3D> directions;
+	public ArrayList<Vector3D> subDirections;
 	
 	public DeadReckoning() {
 		init();
@@ -59,11 +61,13 @@ public class DeadReckoning {
 		lowAccl = null;
 		cp = new Vector3D(); // 初期位置(0,0,0)
 		positions = new ArrayList<Vector3D>();
+		subPositions = new ArrayList<Vector3D>();
 		posTimes = new ArrayList<Long>();
 		// TODO 厳密には開始ボタンをおした時の時刻が入るべき?
 		/* 履歴出力時にDR開始時の時刻を入力する */
 //		positions.add(cp);
 		directions = new ArrayList<Vector3D>();
+		subDirections = new ArrayList<Vector3D>();
 	}
 	
 //	public void setTime(long startTime, long endTime) {
@@ -126,8 +130,10 @@ public class DeadReckoning {
     		// TODO Z軸(高さ)方向の位置推定も考える必要アリ
 			cp = new Vector3D(cp.x, cp.y, 0);
 			positions.add(cp);
+			subPositions.add(cp);
 			posTimes.add(milliTime);
 	    	directions.add(direction.clone());
+	    	subDirections.add(direction.clone());
 			return true;
     	}
     	

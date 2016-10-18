@@ -87,6 +87,12 @@ public class PathView extends View{
 		// 過去移動軌跡を描画
 		if (dr != null) {
         	ArrayList<Vector3D> pos = dr.positions;
+        	ArrayList<Vector3D> subPos = dr.subPositions;
+    		paint.setColor(Color.BLUE);
+            for (Vector3D p : subPos) {
+            	canvas.drawCircle((float)(p.x * scale) + centerW - eyeX, -(float)(p.y * scale) + centerH - eyeY, 15, paint);
+            }
+    		paint.setColor(Color.RED);
             for (Vector3D p : pos) {
             	canvas.drawCircle((float)(p.x * scale) + centerW - eyeX, -(float)(p.y * scale) + centerH - eyeY, 10, paint);
             }

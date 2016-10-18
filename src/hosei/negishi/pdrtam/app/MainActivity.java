@@ -118,9 +118,21 @@ public class MainActivity extends Activity implements OnClickListener,
 			if (startStopBtn.getText().equals("Start")) {
 				startStopBtn.setText("Stop");
 				sa.setSensor(this); // Listenerの登録
+				
+				// ボタンのEnabled
+				Button saveBtn = (Button) findViewById(R.id.save_start_stop_btn);
+				saveBtn.setEnabled(false);
+				Button logBtn = (Button) findViewById(R.id.write_log_btn);
+				logBtn.setEnabled(false);
 			} else if (startStopBtn.getText().equals("Stop")) {
 				startStopBtn.setText("Start");
 				sa.removeSensor(); // Listenerの登録解除
+				
+				// ボタンのEnabled
+				Button saveBtn = (Button) findViewById(R.id.save_start_stop_btn);
+				saveBtn.setEnabled(true);
+				Button logBtn = (Button) findViewById(R.id.write_log_btn);
+				logBtn.setEnabled(true);
 			}
 			break;
 		case R.id.save_start_stop_btn:
@@ -128,11 +140,19 @@ public class MainActivity extends Activity implements OnClickListener,
 			Button saveStartStopBtn = (Button) v;
 			if (saveStartStopBtn.getText().equals("Save Start")) {
 				saveStartStopBtn.setText("Save Stop");
-				sa.setSensor(this); // Listenerの登録
+				// ボタンのEnabled
+				Button startBtn = (Button) findViewById(R.id.start_stop_btn);
+				startBtn.setEnabled(false);
+				Button logBtn = (Button) findViewById(R.id.write_log_btn);
+				logBtn.setEnabled(false);
 			} else if (saveStartStopBtn.getText().equals("Save Stop")) {
 				saveStartStopBtn.setText("Save Start");
-				sa.removeSensor(); // Listenerの登録解除
 //				rescanSdcard(); // SDカード（端末内部）の画像をrescan
+				// ボタンのEnabled
+				Button startBtn = (Button) findViewById(R.id.start_stop_btn);
+				startBtn.setEnabled(true);
+				Button logBtn = (Button) findViewById(R.id.write_log_btn);
+				logBtn.setEnabled(true);
 			}
 			break;
 		case R.id.write_log_btn:

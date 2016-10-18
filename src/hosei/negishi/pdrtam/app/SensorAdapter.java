@@ -150,6 +150,11 @@ public class SensorAdapter implements SensorEventListener {
 			success &= FileManager.writeListData(header + "_0positions", dr.positions, dr.posTimes);
 		else
 			Toast.makeText(MainActivity.getContext(), "dr pos error!", Toast.LENGTH_SHORT).show();
+		if (dr.posTimes.size() == dr.subPositions.size())
+			success &= FileManager.writeListData(header + "_0subPositions", dr.subPositions, dr.posTimes);
+		else
+			Toast.makeText(MainActivity.getContext(), "dr sub pos error!", Toast.LENGTH_SHORT).show();
+			
 			
 		if (success)
 			Toast.makeText(MainActivity.getContext(), "Success Write All Log", Toast.LENGTH_SHORT).show();

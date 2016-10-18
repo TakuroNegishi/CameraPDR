@@ -48,7 +48,7 @@ public class NativeAccesser {
 	}
 	
 	public long[] getTimeAry() {
-		long[] timeAry = new long[2];
+		long[] timeAry = new long[6];
 		getTimeAryNative(timeAry);
 		return timeAry;
 	}

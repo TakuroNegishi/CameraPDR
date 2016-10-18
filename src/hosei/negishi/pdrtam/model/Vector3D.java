@@ -80,10 +80,10 @@ public class Vector3D implements Cloneable {
 		z += v.z;
 	}
 	
-//	/** ベクトルの足し算 */
-//	public Vector3D plus(Vector3D v){
-//		return new Vector3D(x + v.x, y + v.y, z + v.z);
-//	}
+	/** ベクトルの足し算 */
+	public Vector3D plusCreate(Vector3D v){
+		return new Vector3D(x + v.x, y + v.y, z + v.z);
+	}
 	
 	/** ベクトルの引き算 */
 	public Vector3D sub(Vector3D v){

@@ -27,7 +27,7 @@ VanishingPointEstimator::VanishingPointEstimator()
 	maFilterX = new MovingAverageFilter();
 	maFilterY = new MovingAverageFilter();
 	clear();
-	ofs.open("/storage/emulated/legacy/negishi.deadreckoning/Feature Image/log.txt");
+	ofs.open("/storage/emulated/0/negishi.deadreckoning/Feature Image/log.txt");
 }
 
 
@@ -50,19 +50,25 @@ void VanishingPointEstimator::clear()
 	pointHistoryMA.clear();
 	sidewayStatus = 0;
 
-	// PDR側との処理
+	// PDR側との排他制御
 	sidewayMutex.lock();
+	procCount = 0;
 	startTime = 0;
 	endTime = 0;
+	startVPStatus = NORMAL_VP;
+	sideStartTime = 0;
+	sideEndTime = 0;
 	sidewayMutex.unlock();
 
-	startVPStatus = NORMAL_VP;
 	maFilterX->clear();
 	maFilterY->clear();
 }
 
 void VanishingPointEstimator::calcVP(KeyFrame &currentKF)
 {
+	sidewayMutex.lock();
+	procCount++;
+	sidewayMutex.unlock();
 	cout << "calcVP()--------" << endl;
 	cout << "poping..." << endl;
 	//KeyFrame currentKF = keyFrameQueue.pop();
@@ -132,6 +138,7 @@ void VanishingPointEstimator::calcVP(KeyFrame &currentKF)
 		// 逆向き判定
 		if (startVPStatus == LEFT_VP && vpStatus == RIGHT_VP || startVPStatus == RIGHT_VP && vpStatus == LEFT_VP) {
 			sidewayStatus = 2;
+			sideStartTime = currentKF.timeStamp; // 横向き区間開始
 			cout << "sidewayStatus: 1 -> 2" << endl;
 		}
 		else if ((currentKF.timeStamp - startTime) >= 5000) {
@@ -146,8 +153,9 @@ void VanishingPointEstimator::calcVP(KeyFrame &currentKF)
 		// 横向き->正面に戻ってきた時
 		if (vpStatus == NORMAL_VP) {
 			endTime = currentKF.timeStamp;
+			sideEndTime = currentKF.timeStamp - 500; // 横向き区間終了(正面向いた時の一個前 -> 500msec前)
 			// TODO ここでPDR側にどうにかしてstartTime,endTimeを送る
-			ofs << startTime << "," << endTime << endl;
+			ofs << "SIDE_SECTION," << startTime << "," << endTime << endl;
 			sidewayStatus = 0;
 			cout << "sidewayStatus: 2 -> 0" << endl;
 		}
@@ -259,13 +267,17 @@ void VanishingPointEstimator::getStartEndTime(long long startEndTime[])
 		// 横向き期間未観測
 		startEndTime[0] = 0;
 		startEndTime[1] = 0;
-	} else{
+	} else {
 		startEndTime[0] = startTime;
 		startEndTime[1] = endTime;
 		// VPThread側に横向き判定の計測許可
 		startTime = 0;
 		endTime = 0;
 	}
+	startEndTime[2] = procCount; // 処理回数
+	startEndTime[3] = sidewayStatus;
+	startEndTime[4] = sideStartTime; // 横向き区間開始
+	startEndTime[5] = sideEndTime;	 // 横向き区間終了
 	sidewayMutex.unlock();
 }
 
@@ -303,7 +315,7 @@ void VanishingPointEstimator::saveImg(const Mat &img, long long milliTime)
 	//localtime_s(&now_time, &long_time);  // 戻り値から引数に変更
 
 	char buff[256] = "";
-	sprintf(buff, "/storage/emulated/legacy/negishi.deadreckoning/Feature Image/%lld.jpg", milliTime);
+	sprintf(buff, "/storage/emulated/0/negishi.deadreckoning/Feature Image/%lld.jpg", milliTime);
 	//cvtColor(rgbaImg, copy, COLOR_BGR2RGB); // なぜか色が変わるから対処
 	//imshow("color", rgbaImg);
 	imwrite(buff, img);

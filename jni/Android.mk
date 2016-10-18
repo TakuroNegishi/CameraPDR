@@ -29,7 +29,8 @@ export MAINDIR:= $(LOCAL_PATH)
 #OPENCVROOT:= /home/robotbase/Android/OpenCV-2.4.10-android-sdk
 OPENCV_CAMERA_MODULES:=on
 OPENCV_INSTALL_MODULES:=on
-OPENCV_LIB_TYPE:=SHARED
+#OPENCV_LIB_TYPE:=SHARED
+#OPENCV_LIB_TYPE:=STATIC
 include D:/Eclipse/4.4.x/OpenCV-android-sdk/sdk/native/jni/OpenCV.mk
 
 LOCAL_SRC_FILES := ATAMNative.cpp
