@@ -92,12 +92,12 @@ public class StepManager {
 //		negPeakAccl = acclVal;
 //		staticThresh = acclVal;
 		
-		posPeakAccl = acclVal;
-		if (acclVal < 9.8)
-			posPeakAccl = 9.8;
-		negPeakAccl = acclVal;
-		if (acclVal > 9.8)
-			negPeakAccl = 9.8;
+		posPeakAccl = 11.6;
+//		if (acclVal < 9.8)
+//			posPeakAccl = 9.8;
+		negPeakAccl = 9.0;
+//		if (acclVal > 9.8)
+//			negPeakAccl = 9.8;
 		staticThresh = 9.8;
 		
 //		posPeakAccl = 14;

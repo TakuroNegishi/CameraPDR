@@ -16,13 +16,31 @@ import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Stack;
 
+import org.opencv.core.Core.MinMaxLocResult;
+
+import android.media.MediaScannerConnection;
+import android.media.MediaScannerConnection.OnScanCompletedListener;
+import android.net.Uri;
 import android.os.Environment;
 import android.util.Log;
 import android.widget.Toast;
 
 public class FileManager {
 
+	private static OnScanCompletedListener mScanCompletedListener = new OnScanCompletedListener() {
+	    @Override
+	    public void onScanCompleted(String path, Uri uri) {
+	        Log.e("OnScanCompletedListener", "Scan completed: path = " + path);
+	        if (uri == null) {
+		        Log.e("OnScanCompletedListener", "scan uri =NULL");
+	        } else {
+		        Log.e("OnScanCompletedListener", "scan uri = " + uri);
+	        }
+	    }
+	};
+	
 	private FileManager() {
 	}
 
@@ -67,8 +85,7 @@ public class FileManager {
 	public static boolean write(String fileName, float[] vertex) {
 		PrintWriter writer = null;
 		boolean success = true;
-		File file = new File(Environment.getExternalStorageDirectory() + "/"
-				+ "negishi.deadreckoning/Feature Image/" + fileName);
+		File file = new File(Config.APP_DATA_DIR_PATH + "Feature Image/" + fileName);
 		file.getParentFile().mkdir();
 		StringBuilder sb = new StringBuilder();
 		sb.append("x,y,z\n");
@@ -97,6 +114,62 @@ public class FileManager {
 				writer.close();
 		}
 		return success;
+	}
+	
+	/**
+	 * ログファイルを移動
+	 */
+	public static void moveLogFiles() {
+		File srcDir = new File(Config.APP_DATA_DIR_PATH + "Feature Image/");
+		File movedDir = new File(Config.APP_DATA_DIR_PATH);
+		File[] files = srcDir.listFiles();
+		for (int i = 0; i < files.length; i++) {
+			File file = files[i];
+			File movedFile = new File(movedDir.getAbsolutePath() + "/" + files[i].getName());
+			if (!file.renameTo(movedFile)) {
+				Log.e("", "failed move log file\n"
+						+ file.getAbsolutePath() + "\n"
+						+ movedFile.getAbsolutePath());
+			} else {
+				Log.e("", "success move log file\n"
+						+ file.getAbsolutePath() + "\n"
+						+ movedFile.getAbsolutePath());
+			}
+		}
+	}
+	
+	/**
+	 * ログファイルをスキャン(PC上などで見えるように)
+	 */
+	public static void scanLogFiles() {
+		File srcDir = new File(Config.APP_DATA_DIR_PATH + "Feature Image/");
+		String[] paths = srcDir.list();
+		String[] mimeType = new String[paths.length];
+		for (int i = 0; i < mimeType.length; i++) {
+			String suffix = getSuffix(paths[i]);
+			if (suffix.equals("csv")) {
+				mimeType[i] = "text/csv";
+			} else if (suffix.equals("txt")) {
+				mimeType[i] = "text/plain";
+			} else if (suffix.equals("dat")) {
+				mimeType[i] = "text/dat";
+			} else {
+				mimeType[i] = null;
+			}
+		}
+		MediaScannerConnection.scanFile(MainActivity.getContext(), paths, mimeType, mScanCompletedListener);
+	}
+	
+	/**
+	 * ファイル名から拡張子を返します。
+	 * @param fileName ファイル名
+	 * @return ファイルの拡張子
+	 */
+	private static String getSuffix(String fileName) {
+		if (fileName == null) return null;
+		int point = fileName.lastIndexOf(".");
+		if (point != -1) return fileName.substring(point + 1);
+		return fileName;
 	}
 	
 	/**
@@ -150,7 +223,7 @@ public class FileManager {
 	public static boolean write(String fileName, String text) {
 		PrintWriter writer = null;
 		boolean success = true;
-        File file = new File(Environment.getExternalStorageDirectory() + "/" + "negishi.deadreckoning/Feature Image/" + fileName);
+        File file = new File(Config.APP_DATA_DIR_PATH + "Feature Image/" + fileName);
         file.getParentFile().mkdir();
 		try {
 			FileOutputStream out = new FileOutputStream(file, false); // 上書き
@@ -177,7 +250,7 @@ public class FileManager {
 
 		try {
 			// 出力先ファイル
-			File file = new File(Environment.getExternalStorageDirectory() + "/" + "negishi.deadreckoning/Feature Image/" + fileName);
+			File file = new File(Config.APP_DATA_DIR_PATH + "Feature Image/" + fileName);
 			
 			fis = new BufferedOutputStream(new FileOutputStream(file));
 			for (byte[] bytes : bytess) {

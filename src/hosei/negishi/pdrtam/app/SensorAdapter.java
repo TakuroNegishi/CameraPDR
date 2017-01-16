@@ -39,7 +39,9 @@ public class SensorAdapter implements SensorEventListener {
 	// センサーデータ格納用
 	private ArrayList<SensorData> accelerometerList;	// 加速度
 	private ArrayList<SensorData> gyroscopeList;		// ジャイロ
+	private ArrayList<SensorData> gravityList;			// 重力加速度
 	private ArrayList<SensorData> magneticFieldList;	// 地磁気
+	private ArrayList<SensorData> directionList;		// 進行方向
 	
 	public SensorAdapter () {
 //		this.mainActivity = mainActivity;
@@ -53,6 +55,7 @@ public class SensorAdapter implements SensorEventListener {
 		
 		sensorMap = new SensorMap();
 		accelerometerList = new ArrayList<SensorData>();
+		gravityList = new ArrayList<SensorData>();
 		gyroscopeList = new ArrayList<SensorData>();
 		magneticFieldList = new ArrayList<SensorData>();
 	}
@@ -70,7 +73,7 @@ public class SensorAdapter implements SensorEventListener {
 			case Sensor.TYPE_GRAVITY:				// 重力センサー
 //			case Sensor.TYPE_LINEAR_ACCELERATION:	// 直線加速度センサー(加速度-重力=直線加速度)
 			case Sensor.TYPE_ACCELEROMETER:			// 加速度センサー
-//			case Sensor.TYPE_PRESSURE:				// 気圧センサー
+			case Sensor.TYPE_PRESSURE:				// 気圧センサー
 //			case Sensor.TYPE_AMBIENT_TEMPERATURE:	// 温度センサー
 			case Sensor.TYPE_MAGNETIC_FIELD:		// 地磁気センサ
 				/* 謎のセンサ登録阻止 */
@@ -116,12 +119,15 @@ public class SensorAdapter implements SensorEventListener {
 			procPosEstimation(sensorData.getTime());
 		} else if (event.sensor.getType() == Sensor.TYPE_GRAVITY) {	// 重力加速度センサ
 			sensorMap.put(SensorName.GRVT, sensorData);
+			gravityList.add(sensorData);
 		} else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {	// ジャイロセンサ
 			sensorMap.put(SensorName.GYRO, new SensorData(event.timestamp, elem));
 			gyroscopeList.add(sensorData);
 		} else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {	// 地磁気センサ
 			sensorMap.put(SensorName.MGNT, sensorData);
 			magneticFieldList.add(sensorData);
+		} else if (event.sensor.getType() == Sensor.TYPE_PRESSURE) {	// 気圧センサ
+			sensorMap.put(SensorName.PRESSURE, sensorData);
 		}
 	}
 	
@@ -144,17 +150,14 @@ public class SensorAdapter implements SensorEventListener {
 		String header = s.format(now);
 		success &= FileManager.writeListData(header + "_acce", accelerometerList);
 		success &= FileManager.writeListData(header + "_gyro", gyroscopeList);
+		success &= FileManager.writeListData(header + "_acce", accelerometerList);
 		success &= FileManager.writeListData(header + "_magnet", magneticFieldList);
 //		Log.e("", "dr.positions:" + dr.positions.size() + ", dr.posTimes:" + dr.posTimes.size());
-		if (dr.posTimes.size() == dr.positions.size())
-			success &= FileManager.writeListData(header + "_0positions", dr.positions, dr.posTimes);
-		else
-			Toast.makeText(MainActivity.getContext(), "dr pos error!", Toast.LENGTH_SHORT).show();
-		if (dr.posTimes.size() == dr.subPositions.size())
-			success &= FileManager.writeListData(header + "_0subPositions", dr.subPositions, dr.posTimes);
-		else
-			Toast.makeText(MainActivity.getContext(), "dr sub pos error!", Toast.LENGTH_SHORT).show();
-			
+		success &= FileManager.writeListData(header + "_0positions", dr.positions, dr.posTimes);
+		success &= FileManager.writeListData(header + "_0subPositions", dr.subPositions, dr.posTimes);
+		success &= FileManager.writeListData(header + "_0directions", dr.directions, dr.posTimes);
+		success &= FileManager.writeListData(header + "_0subDirections", dr.subDirections, dr.posTimes);
+//		FileManager.scanLogFiles();
 			
 		if (success)
 			Toast.makeText(MainActivity.getContext(), "Success Write All Log", Toast.LENGTH_SHORT).show();

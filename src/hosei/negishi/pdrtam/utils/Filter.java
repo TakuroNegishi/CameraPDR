@@ -21,8 +21,7 @@ public class Filter {
 	 * @param value 入力値
 	 * @param c フィルタレート */
 	public static Vector3D lowPass(Vector3D former, Vector3D value, float c){
-		Vector3D newVector = value.multCreate(c);
-		newVector.plus(former.multCreate(1 - c));
+		Vector3D newVector = value.multCreate(c).plusCreate(former.multCreate(1 - c));
 		return newVector;
 	}
 }

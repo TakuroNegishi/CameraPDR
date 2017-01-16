@@ -9,7 +9,8 @@ public class Config {
 //	public static final int PREVIEW_WIDTH = (int) (IMAGE_WIDTH * PREVIEW_RATIO);
 //	public static final int PREVIEW_HEIGHT = (int) (IMAGE_HEIGHT * PREVIEW_RATIO);
 	
-	public static final String APP_DATA_DIR_PATH = Environment.getExternalStorageDirectory() + "/negishi.deadreckoning/";
+	public static final String APP_DATA_DIR_PATH = 
+			Environment.getExternalStorageDirectory() + "/negishi.deadreckoning/";
 	
 //	public static final Object sharedResource = new Object();
 }

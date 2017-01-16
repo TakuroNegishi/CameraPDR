@@ -26,9 +26,9 @@ public class SLAMEngine {
 		NativeAccesser.getInstance().setStop();
 	}
 	
-	public void saveImage() {
-		cameraManager.saveImageMat();
-	}
+//	public void saveImage() {
+//		cameraManager.saveImageMat();
+//	}
 	
 //	public float[] getPoints3D() {
 //		float[] pointAry = new float[NativeAccesser.getInstance().getPointLength()];

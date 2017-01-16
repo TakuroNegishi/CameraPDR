@@ -96,20 +96,22 @@ void DirectionEstimator::estimate(Mat &rgbaImg, long long milliTime)
 	//start = chrono::system_clock::now();
 
 	/* debug */
-	saveImg(rgbaImg, milliTime); // debug
+//	saveImg(rgbaImg, milliTime); // debug
 
-//	if (tracker->tracking(rgbaImg, milliTime)) {
-//		KeyFrame lastKF;
-//		lastKF.set(tracker->getLastKF());
-//		queueMutex.lock();
-//		keyFrameQueue.push(lastKF);
+	if (tracker->tracking(rgbaImg, milliTime)) {
+		KeyFrame lastKF;
+		lastKF.set(tracker->getLastKF());
+		queueMutex.lock();
+		keyFrameQueue.push(lastKF);
+//		LOGE(",DE_KeyFrame,%lld", milliTime);
 //		cout << "pushed" << endl;
-//		queueMutex.unlock();
-//	}
+		queueMutex.unlock();
+	}
 }
 
 void DirectionEstimator::procCalcVP()
 {
+	vpEstimator->setOFStream(); // ログファイルのパスセット
 	while (true) {
 		// ループチェック
 		vpLoopMutex.lock();

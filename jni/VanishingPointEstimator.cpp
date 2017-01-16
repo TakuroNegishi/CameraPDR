@@ -1,4 +1,5 @@
 #include "VanishingPointEstimator.h"
+#include "FileManager.h"
 #include <iostream>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -13,10 +14,18 @@ const Scalar VanishingPointEstimator::SCALAR_RED(255, 0, 0);
 const Scalar VanishingPointEstimator::SCALAR_GREEN(0, 255, 0);
 const Scalar VanishingPointEstimator::SCALAR_BLUE(0, 0, 255);
 const Scalar VanishingPointEstimator::SCALAR_YELLOW(255, 255, 0);
-const float VanishingPointEstimator::ERROR_VP = -999.0f;
+const float VanishingPointEstimator::ERROR_VP = -9999.0f;
 const int VanishingPointEstimator::LEFT_VP = -1;
 const int VanishingPointEstimator::NORMAL_VP = 0;
 const int VanishingPointEstimator::RIGHT_VP = 1;
+const int VanishingPointEstimator::SIDEWAY_NORMAL = 0;
+const int VanishingPointEstimator::SIDEWAY_SIDE = 1;
+const int VanishingPointEstimator::SIDEWAY_CP_NORMAL = 2;
+const int VanishingPointEstimator::SIDEWAY_REVERSE = 3;
+const int VanishingPointEstimator::SIDEWAY_REVERSE_CURVE = 4;
+const int VanishingPointEstimator::WALK_NONE = 0;
+const int VanishingPointEstimator::WALK_SIDEWAYS = 1;
+const int VanishingPointEstimator::WALK_FRONT = 2;
 
 VanishingPointEstimator::VanishingPointEstimator()
 {
@@ -24,10 +33,9 @@ VanishingPointEstimator::VanishingPointEstimator()
 	akazeDetector = AKAZE::create(5, 0, 3, 0.0005, 4, 4, 1);
 	//	mAKAZEDetector = AKAZE::create(5, 0, 3, 0.0005, 4, 4, 1);
 	matcher = DescriptorMatcher::create("BruteForce-Hamming");
-	maFilterX = new MovingAverageFilter();
-	maFilterY = new MovingAverageFilter();
+	waFilterX = new WeightedAverageFilter();
+	waFilterY = new WeightedAverageFilter();
 	clear();
-	ofs.open("/storage/emulated/0/negishi.deadreckoning/Feature Image/log.txt");
 }
 
 
@@ -37,18 +45,17 @@ VanishingPointEstimator::~VanishingPointEstimator()
 	vector<KeyPoint>().swap(prevKpts);
 	prevDesc.release();
 	vector<Point2f>().swap(pointHistory);
-	vector<Point2f>().swap(pointHistoryMA);
-	delete maFilterX;
-	delete maFilterY;
-}
+	vector<Point2f>().swap(pointHistoryWA);
+	delete waFilterX;
+	delete waFilterY;}
 
 void VanishingPointEstimator::clear()
 {
 	isFirstProc = true;
 	prevKpts.clear();
 	pointHistory.clear();
-	pointHistoryMA.clear();
-	sidewayStatus = 0;
+	pointHistoryWA.clear();
+	sidewayStatus = SIDEWAY_NORMAL;
 
 	// PDR側との排他制御
 	sidewayMutex.lock();
@@ -58,10 +65,23 @@ void VanishingPointEstimator::clear()
 	startVPStatus = NORMAL_VP;
 	sideStartTime = 0;
 	sideEndTime = 0;
+	walkStatus = WALK_NONE;
 	sidewayMutex.unlock();
 
-	maFilterX->clear();
-	maFilterY->clear();
+	waFilterX->clear();
+	waFilterY->clear();
+}
+
+void VanishingPointEstimator::setOFStream()
+{
+	// ofstreamの出力パスをセット
+	time_t now = time(NULL);
+	struct tm *pnow = localtime(&now);
+	char buff[256] = "";
+	sprintf(buff, "/storage/emulated/0/negishi.deadreckoning/Feature Image/%04d-%02d-%02d_%02d;%02d;%02d_log.txt",
+		pnow->tm_year + 1900, pnow->tm_mon + 1, pnow->tm_mday, pnow->tm_hour,
+		pnow->tm_min, pnow->tm_sec);
+	ofs.open(buff);
 }
 
 void VanishingPointEstimator::calcVP(KeyFrame &currentKF)
@@ -74,6 +94,7 @@ void VanishingPointEstimator::calcVP(KeyFrame &currentKF)
 	//KeyFrame currentKF = keyFrameQueue.pop();
 	cout << "poped!..." << endl;
 	//if (currentKF.timeStamp == -1) break; // pop操作を強制中断された場合
+
 	detect(currentKF.grayImg, currentKF.kpts);
 	describe(currentKF.grayImg, currentKF.kpts, currentKF.desc);
 	cout << "currentKF.timeStamp: " << currentKF.timeStamp << endl;
@@ -96,18 +117,18 @@ void VanishingPointEstimator::calcVP(KeyFrame &currentKF)
 	int vpStatus;
 	if (vp.x == ERROR_VP && vp.y == ERROR_VP) {
 		// 消失点計算エラー
-		//pointHistoryMA.push_back(vp);
+		//pointHistoryWA.push_back(vp);
 		vpMA = Point2f(ERROR_VP, ERROR_VP);
 		vpStatus = static_cast<int>(ERROR_VP);
 	}
 	else {
 		// 消失点計算成功
-		vpMA = Point2f(maFilterX->update(vp.x), maFilterY->update(vp.y));
-		//pointHistoryMA.push_back(vpMA);
+		vpMA = Point2f(waFilterX->update(vp.x), waFilterY->update(vp.y));
+		//pointHistoryWA.push_back(vpMA);
 
-		if (vpMA.x < (0 + 50)) {
+		if (vpMA.x <= (0 + 50)) {
 			vpStatus = LEFT_VP;
-		} else if (vpMA.x > (640 - 50)) {
+		} else if (vpMA.x >= (640 - 50)) {
 			vpStatus = RIGHT_VP;
 		} else {
 			vpStatus = NORMAL_VP;
@@ -123,41 +144,73 @@ void VanishingPointEstimator::calcVP(KeyFrame &currentKF)
 	else if (vpStatus == LEFT_VP)
 		ofs << ",LEFT" << endl;
 
+	// 画像,特徴点フロー,消失点MA保存
+	char buff[256] = "";
+	sprintf(buff, "/storage/emulated/0/negishi.deadreckoning/Feature Image/%lld.dat", currentKF.timeStamp);
+	FileManager::SaveMatBinary(buff, currentKF.img, inlierMatches, currentKF.kpts, prevKpts, vpMA);
+
 	// 横向き歩き判定
 	sidewayMutex.lock();
-	if (sidewayStatus == 0 && startTime == 0 && endTime == 0) { // start,end==0 -> PDR側からの取得待ち
+	if (sidewayStatus == SIDEWAY_NORMAL && startTime == 0 && endTime == 0) { // start,end==0 -> PDR側からの取得待ち
 		if (vpStatus == LEFT_VP || vpStatus == RIGHT_VP) {
 			// 左右どちらかに
-			startTime = currentKF.timeStamp;
+			startTime = currentKF.timeStamp - 1500; // 横向き初動...(-1500msec)
 			startVPStatus = vpStatus;
-			sidewayStatus = 1;
+			sidewayStatus = SIDEWAY_SIDE;
 			cout << "sidewayStatus: 0 -> 1" << endl;
 		}
 	}
-	else if (sidewayStatus == 1) {
-		// 逆向き判定
-		if (startVPStatus == LEFT_VP && vpStatus == RIGHT_VP || startVPStatus == RIGHT_VP && vpStatus == LEFT_VP) {
-			sidewayStatus = 2;
+	else if (sidewayStatus == SIDEWAY_SIDE) {
+		// 左右どちらか->真ん中
+		// 横向きの通過点 or 一点注視 or 正面に戻った
+		if (vpStatus == NORMAL_VP) {
+			sidewayStatus = SIDEWAY_CP_NORMAL; // 正面
 			sideStartTime = currentKF.timeStamp; // 横向き区間開始
-			cout << "sidewayStatus: 1 -> 2" << endl;
 		}
-		else if ((currentKF.timeStamp - startTime) >= 5000) {
-			// 5秒経過しても逆向きにならない
-			startTime = 0;
-			startVPStatus = NORMAL_VP;
-			sidewayStatus = 0;
-			cout << "sidewayStatus: 1 -> 0" << endl;
+		else if (startVPStatus == LEFT_VP && vpStatus == LEFT_VP || startVPStatus == RIGHT_VP && vpStatus == RIGHT_VP) {
+			// 前回と左右どちらか同じ方向->時間更新
+			startTime = currentKF.timeStamp - 1500; // 横向き初動...(-1500msec)
+			startVPStatus = vpStatus;
 		}
 	}
-	else if (sidewayStatus == 2) {
+	else if (sidewayStatus == SIDEWAY_CP_NORMAL) {
+		if (startVPStatus == LEFT_VP && vpStatus == RIGHT_VP || startVPStatus == RIGHT_VP && vpStatus == LEFT_VP) {
+			const int center = 210;
+			// 逆向き判定
+			if ((vpMA.x >= 640 + center || vpMA.x <= -center) && sideStartTime > sideEndTime) {
+				// 逆向き山
+				// 横向き->正面に戻り始めの回転
+				sideEndTime = currentKF.timeStamp - 500; // 横向き区間は,戻りはじめの回転を含まないので1frame前(-500ms)
+				walkStatus = WALK_FRONT; // 横向き歩き以外(普通の左右逆カーブ or 一点注視)
+				sidewayStatus = SIDEWAY_REVERSE_CURVE;
+				ofs << "SIDE_SECTION," << sideStartTime << "," << sideEndTime << endl;
+			} else {
+				// 逆向き推移
+				walkStatus = WALK_SIDEWAYS; // 横向き歩き
+				sidewayStatus = SIDEWAY_REVERSE;
+//				sideStartTime = currentKF.timeStamp; // 横向き区間開始
+			}
+		}
+		// TODO リセット
+//		if (startVPStatus == LEFT_VP && vpStatus == RIGHT_VP || startVPStatus == RIGHT_VP && vpStatus == LEFT_VP) {
+	}
+	else if (sidewayStatus == SIDEWAY_REVERSE) {
+		const int center = 210;
+		if ((vpMA.x >= 640 + center || vpMA.x <= -center) && sideStartTime > sideEndTime) {
+			// 横向き->正面に戻り始めの回転
+			sideEndTime = currentKF.timeStamp - 500; // 横向き区間は,戻りはじめの回転を含まないので(-500ms)
+			sidewayStatus = SIDEWAY_REVERSE_CURVE;
+			ofs << "SIDE_SECTION," << sideStartTime << "," << sideEndTime << endl;
+		}
+	}
+	else if (sidewayStatus == SIDEWAY_REVERSE_CURVE) {
 		// 横向き->正面に戻ってきた時
 		if (vpStatus == NORMAL_VP) {
 			endTime = currentKF.timeStamp;
-			sideEndTime = currentKF.timeStamp - 500; // 横向き区間終了(正面向いた時の一個前 -> 500msec前)
 			// TODO ここでPDR側にどうにかしてstartTime,endTimeを送る
-			ofs << "SIDE_SECTION," << startTime << "," << endTime << endl;
-			sidewayStatus = 0;
-			cout << "sidewayStatus: 2 -> 0" << endl;
+			ofs << "SECTION," << startTime << "," << endTime << endl;
+			sidewayStatus = SIDEWAY_NORMAL;
+//			cout << "sidewayStatus: 2 -> 0" << endl;
 		}
 	}
 	sidewayMutex.unlock();
@@ -228,21 +281,21 @@ Point2f VanishingPointEstimator::getCrossPoint(const vector<DMatch>& matchVector
 	float q = 0;
 	float bunbo = 0;
 	for (int i = 0; i < flowNum; ++i) {
-		Point2f p1 = currentKpts[matchVector[i].trainIdx].pt;
-		Point2f p2 = prevKpts[matchVector[i].queryIdx].pt;
+		Point2f pp = prevKpts[matchVector[i].queryIdx].pt;
+		Point2f cp = currentKpts[matchVector[i].trainIdx].pt;
 
 		// 連立方程式公式 - https://t-sv.sakura.ne.jp/text/num_ana/ren_eq22/ren_eq22.html
-		//		sumX += 2*X * (p1.y - p2.y) * (p1.y - p2.y) + 2*Y * (p2.x - p1.x) * (p1.y - p2.y)
-		//				+ 2 * (p1.x * p2.y - p2.x * p1.y) * (p1.y - p2.y); // = 0 偏微分X
-		//		sumY += 2*Y * (p2.x - p1.x) * (p2.x - p1.x) + 2*X * (p2.x - p1.x) * (p1.y - p2.y)
-		//				+ 2 * (p1.x * p2.y - p2.x * p1.y) * (p2.x - p1.x); // = 0 偏微分Y
+		//		sumX += 2*X * (pp.y - cp.y) * (pp.y - cp.y) + 2*Y * (cp.x - pp.x) * (pp.y - cp.y)
+		//				+ 2 * (pp.x * cp.y - cp.x * pp.y) * (pp.y - cp.y); // = 0 偏微分X
+		//		sumY += 2*Y * (cp.x - pp.x) * (cp.x - pp.x) + 2*X * (cp.x - pp.x) * (pp.y - cp.y)
+		//				+ 2 * (pp.x * cp.y - cp.x * pp.y) * (cp.x - pp.x); // = 0 偏微分Y
 
-		a += (p1.y - p2.y) * (p1.y - p2.y);
-		b += (p2.x - p1.x) * (p1.y - p2.y);
-		p += (p1.x * p2.y - p2.x * p1.y) * (p1.y - p2.y);
-		c += (p2.x - p1.x) * (p1.y - p2.y);
-		d += (p2.x - p1.x) * (p2.x - p1.x);
-		q += (p1.x * p2.y - p2.x * p1.y) * (p2.x - p1.x);
+		a += (pp.y - cp.y) * (pp.y - cp.y);
+		b += (cp.x - pp.x) * (pp.y - cp.y);
+		p += (pp.x * cp.y - cp.x * pp.y) * (pp.y - cp.y);
+		c += (cp.x - pp.x) * (pp.y - cp.y);
+		d += (cp.x - pp.x) * (cp.x - pp.x);
+		q += (pp.x * cp.y - cp.x * pp.y) * (cp.x - pp.x);
 	}
 	p *= -1;
 	q *= -1;
@@ -275,9 +328,11 @@ void VanishingPointEstimator::getStartEndTime(long long startEndTime[])
 		endTime = 0;
 	}
 	startEndTime[2] = procCount; // 処理回数
-	startEndTime[3] = sidewayStatus;
-	startEndTime[4] = sideStartTime; // 横向き区間開始
-	startEndTime[5] = sideEndTime;	 // 横向き区間終了
+	startEndTime[3] = startVPStatus; // 回転しはじめの消失点status
+	startEndTime[4] = sidewayStatus; // 横向きステータス
+	startEndTime[5] = sideStartTime; // 横向き区間開始
+	startEndTime[6] = sideEndTime;	 // 横向き区間終了
+	startEndTime[7] = walkStatus;	 // 横向き区間ステータス
 	sidewayMutex.unlock();
 }
 

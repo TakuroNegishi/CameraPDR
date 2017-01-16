@@ -14,6 +14,9 @@ public class DeadReckoning {
 	public static final Vector3D INIT_X = new Vector3D(1, 0, 0);
 	public static final Vector3D INIT_Y = new Vector3D(0, 1, 0);
 	public static final Vector3D INIT_Z = new Vector3D(0, 0, 1);
+	public static final Vector3D INIT_MINUS_X = new Vector3D(-1, 0, 0);
+	public static final Vector3D INIT_MINUS_Y = new Vector3D(0, -1, 0);
+	public static final Vector3D INIT_MINUS_Z = new Vector3D(0, 0, -1);
 	
 	/** 端末右ベクトル */
 	Vector3D right;
@@ -38,6 +41,7 @@ public class DeadReckoning {
 	public ArrayList<Long> posTimes;
 	/** 現在位置 */
 	Vector3D cp;
+	Vector3D subCP;
 	/** 進行方向ログ */
 	public ArrayList<Vector3D> directions;
 	public ArrayList<Vector3D> subDirections;
@@ -60,6 +64,7 @@ public class DeadReckoning {
 		distance = 0;
 		lowAccl = null;
 		cp = new Vector3D(); // 初期位置(0,0,0)
+		subCP = new Vector3D();
 		positions = new ArrayList<Vector3D>();
 		subPositions = new ArrayList<Vector3D>();
 		posTimes = new ArrayList<Long>();
@@ -126,9 +131,8 @@ public class DeadReckoning {
     	if(stepMg.isPeak){
     		// 現在位置更新
     		stepCnt++;
-    		cp.plus(direction.multCreate(1.66f * 0.46f));
+    		cp = cp.plusCreate(direction.multCreate(1.66f * 0.46f));
     		// TODO Z軸(高さ)方向の位置推定も考える必要アリ
-			cp = new Vector3D(cp.x, cp.y, 0);
 			positions.add(cp);
 			subPositions.add(cp);
 			posTimes.add(milliTime);

@@ -117,22 +117,12 @@ public class MainActivity extends Activity implements OnClickListener,
 			Button startStopBtn = (Button) v;
 			if (startStopBtn.getText().equals("Start")) {
 				startStopBtn.setText("Stop");
-				sa.setSensor(this); // Listenerの登録
-				
-				// ボタンのEnabled
-				Button saveBtn = (Button) findViewById(R.id.save_start_stop_btn);
-				saveBtn.setEnabled(false);
-				Button logBtn = (Button) findViewById(R.id.write_log_btn);
-				logBtn.setEnabled(false);
+				sa.setSensor(this); // Listenerの登録	
+				setBtnEnabled(false, startStopBtn);
 			} else if (startStopBtn.getText().equals("Stop")) {
 				startStopBtn.setText("Start");
 				sa.removeSensor(); // Listenerの登録解除
-				
-				// ボタンのEnabled
-				Button saveBtn = (Button) findViewById(R.id.save_start_stop_btn);
-				saveBtn.setEnabled(true);
-				Button logBtn = (Button) findViewById(R.id.write_log_btn);
-				logBtn.setEnabled(true);
+				setBtnEnabled(true, startStopBtn);
 			}
 			break;
 		case R.id.save_start_stop_btn:
@@ -140,25 +130,36 @@ public class MainActivity extends Activity implements OnClickListener,
 			Button saveStartStopBtn = (Button) v;
 			if (saveStartStopBtn.getText().equals("Save Start")) {
 				saveStartStopBtn.setText("Save Stop");
-				// ボタンのEnabled
-				Button startBtn = (Button) findViewById(R.id.start_stop_btn);
-				startBtn.setEnabled(false);
-				Button logBtn = (Button) findViewById(R.id.write_log_btn);
-				logBtn.setEnabled(false);
+				setBtnEnabled(false, saveStartStopBtn);
 			} else if (saveStartStopBtn.getText().equals("Save Stop")) {
 				saveStartStopBtn.setText("Save Start");
 //				rescanSdcard(); // SDカード（端末内部）の画像をrescan
-				// ボタンのEnabled
-				Button startBtn = (Button) findViewById(R.id.start_stop_btn);
-				startBtn.setEnabled(true);
-				Button logBtn = (Button) findViewById(R.id.write_log_btn);
-				logBtn.setEnabled(true);
+				setBtnEnabled(true, saveStartStopBtn);
 			}
 			break;
 		case R.id.write_log_btn:
 			sa.writeLog(); // センサーデータ履歴出力
 			break;
 		}
+	}
+	
+	/**
+	 * startStopボタンを押したときのEnabledフラグ管理
+	 * @param flag Enabledフラグ
+	 * @param pushedBtn 押されたボタン */
+	private void setBtnEnabled(boolean flag, Button pushedBtn) {
+		// ボタンのEnabled
+		if (pushedBtn.getId() == R.id.start_stop_btn) {
+			Button saveBtn = (Button) findViewById(R.id.save_start_stop_btn);
+			saveBtn.setEnabled(flag);
+			Button logBtn = (Button) findViewById(R.id.write_log_btn);
+			logBtn.setEnabled(flag);
+		} else if (pushedBtn.getId() == R.id.save_start_stop_btn) {
+			Button startBtn = (Button) findViewById(R.id.start_stop_btn);
+			startBtn.setEnabled(flag);
+			Button logBtn = (Button) findViewById(R.id.write_log_btn);
+			logBtn.setEnabled(flag);
+		} 
 	}
 	
 	public void rescanSdcard(){ 

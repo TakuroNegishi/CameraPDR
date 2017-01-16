@@ -4,9 +4,12 @@ package hosei.negishi.pdrtam.model;
  * 3次元ベクトルクラス
  */
 public class Vector3D implements Cloneable {	
-	public float x;
-	public float y;
-	public float z;
+	public static enum VectorTYPE {
+		X, Y, Z
+	}
+	public final float x;
+	public final float y;
+	public final float z;
 	
 	/** ベクトルオブジェクトの構築(全成分0) */
 	public Vector3D(){
@@ -35,38 +38,48 @@ public class Vector3D implements Cloneable {
 		this.z = v.z;
 	}
 
-	public void set(Vector3D v){
-		this.x = v.x;
-		this.y = v.y;
-		this.z = v.z;
-	}
-	
-	public void set(float x, float y, float z){
-		this.x = x;
-		this.y = y;
-		this.z = z;
-	}
+//	public void set(Vector3D v){
+//		this.x = v.x;
+//		this.y = v.y;
+//		this.z = v.z;
+//	}
+//	
+//	public void set(float x, float y, float z){
+//		this.x = x;
+//		this.y = y;
+//		this.z = z;
+//	}
 	
 	/** 正規化ベクトルを取得する */
 	public Vector3D normalize(){
-		float length  = length();
-		float tmpX = this.x / length;
-		float tmpY = this.y / length;
-		float tmpZ = this.z / length;
+		double length  = length();
+		double tmpX = this.x / length;
+		double tmpY = this.y / length;
+		double tmpZ = this.z / length;
 		return new Vector3D(tmpX, tmpY, tmpZ);
 	}
 	
 	/** ベクトルの大きさを求める */
-	public float length(){
-		return (float)Math.sqrt(x * x + y * y + z * z);
+	public double length(){
+		return Math.sqrt(x * x + y * y + z * z);
+	}
+	
+	public VectorTYPE getMax() {
+		if (x > y) {
+			if (x > z) return VectorTYPE.X;
+			else return VectorTYPE.Z;
+		} else {
+			if (y > z) return VectorTYPE.Y;
+			else return VectorTYPE.Z;
+		}
 	}
 	
 	/** スカラー倍 */
-	public void mult(float d){
-		x *= d;
-		y *= d;
-		z *= d;
-	}
+//	public void mult(float d){
+//		x *= d;
+//		y *= d;
+//		z *= d;
+//	}
 	
 	/** スカラー倍 */
 	public Vector3D multCreate(float d){
@@ -74,11 +87,11 @@ public class Vector3D implements Cloneable {
 	}
 	
 	/** ベクトルの足し算 */
-	public void plus(Vector3D v){
-		x += v.x;
-		y += v.y;
-		z += v.z;
-	}
+//	public void plus(Vector3D v){
+//		x += v.x;
+//		y += v.y;
+//		z += v.z;
+//	}
 	
 	/** ベクトルの足し算 */
 	public Vector3D plusCreate(Vector3D v){
